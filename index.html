@@ -39762,7 +39762,268 @@ function StabilityNote({ noteKey }) {
             ] });
   }
 
-  function CustomFormulaCard({ materialPrices, priceCurrency, customerSystemVol }) {
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBp5O4e6r7wXj7hZptC-EYbPx9r9_pm70U",
+    authDomain: "power-chemical-app.firebaseapp.com",
+    projectId: "power-chemical-app",
+    storageBucket: "power-chemical-app.firebasestorage.app",
+    messagingSenderId: "543299523931",
+    appId: "1:543299523931:web:b817aed00cfdf84440367e",
+    measurementId: "G-83QGS4EFCE"
+  };
+  var FIREBASE_SDK_VERSION = "10.13.0";
+var _firebaseModulesPromise = null;
+  function loadFirebaseModules() {
+    if (!_firebaseModulesPromise) {
+      const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
+      _firebaseModulesPromise = Promise.all([
+        import(/* webpackIgnore: true */ `${base}/firebase-app.js`),
+        import(/* webpackIgnore: true */ `${base}/firebase-auth.js`),
+        import(/* webpackIgnore: true */ `${base}/firebase-firestore.js`)
+      ]).then(([appMod, authMod, fsMod]) => {
+        const app = appMod.initializeApp(FIREBASE_CONFIG);
+        const auth = authMod.getAuth(app);
+        const db = fsMod.getFirestore(app);
+        return { app, auth, db, appMod, authMod, fsMod };
+      }).catch((e) => {
+        _firebaseModulesPromise = null;
+        throw e;
+      });
+    }
+    return _firebaseModulesPromise;
+  }
+function collectPcgsBackupData() {
+    const backup = {};
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        backup[key] = window.localStorage.getItem(key);
+      }
+    }
+    return backup;
+  }
+function applyPcgsBackupData(data) {
+    Object.entries(data).forEach(([key, value]) => {
+      if (key.startsWith(STORAGE_PREFIX)) window.localStorage.setItem(key, value);
+    });
+  }
+function firebaseAuthErrorMessage(e) {
+    const code = e && e.code || "";
+    if (code.indexOf("email-already-in-use") !== -1) return "An account with this email already exists — try Sign In instead.";
+    if (code.indexOf("weak-password") !== -1) return "Password must be at least 6 characters.";
+    if (code.indexOf("invalid-email") !== -1) return "That doesn't look like a valid email address.";
+    if (code.indexOf("invalid-credential") !== -1 || code.indexOf("wrong-password") !== -1 || code.indexOf("user-not-found") !== -1) return "Incorrect email or password.";
+    if (code.indexOf("network-request-failed") !== -1) return "No internet connection — cloud features need internet.";
+    if (code.indexOf("too-many-requests") !== -1) return "Too many attempts — please wait a moment and try again.";
+    if (code.indexOf("permission-denied") !== -1) return "Cloud storage permission denied — the Firestore security rules may not be set up yet.";
+    return e && e.message ? e.message : "Something went wrong.";
+  }
+function CloudSyncCard() {
+    const [sdkState, setSdkState] = (0, import_react.useState)("loading");
+    const [fb, setFb] = (0, import_react.useState)(null);
+    const [user, setUser] = (0, import_react.useState)(null);
+    const [authView, setAuthView] = (0, import_react.useState)("signin");
+    const [formEmail, setFormEmail] = (0, import_react.useState)("");
+    const [formPassword, setFormPassword] = (0, import_react.useState)("");
+    const [busy, setBusy] = (0, import_react.useState)(false);
+    const [errorMsg, setErrorMsg] = (0, import_react.useState)(null);
+    const [infoMsg, setInfoMsg] = (0, import_react.useState)(null);
+    const [lastCloudBackupAt, setLastCloudBackupAt] = usePersistedState("lastCloudBackupAt", null);
+    const [autoBackupEnabled, setAutoBackupEnabled] = usePersistedState("cloudAutoBackupEnabled", true);
+    const lastAutoBackupRef = (0, import_react.useRef)(0);
+
+    (0, import_react.useEffect)(() => {
+      let cancelled = false;
+      let unsub = null;
+      loadFirebaseModules().then((mods) => {
+        if (cancelled) return;
+        setFb(mods);
+        setSdkState("ready");
+        unsub = mods.authMod.onAuthStateChanged(mods.auth, (u) => {
+          setUser(u ? { uid: u.uid, email: u.email } : null);
+        });
+      }).catch(() => {
+        if (!cancelled) setSdkState("offline");
+      });
+      return () => {
+        cancelled = true;
+        if (unsub) unsub();
+      };
+    }, []);
+
+    const backupNow = (0, import_react.useCallback)((silent) => {
+      if (!fb || !user) return Promise.resolve(false);
+      const data = collectPcgsBackupData();
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const payload = { exportedAt: nowIso, toolVersion: "v9.134", keyCount: Object.keys(data).length, data };
+      const ref = fb.fsMod.doc(fb.db, "backups", user.uid);
+      return fb.fsMod.setDoc(ref, payload).then(() => {
+        setLastCloudBackupAt(nowIso);
+        if (!silent) setInfoMsg("☁️ Cloud backup saved successfully.");
+        return true;
+      }).catch((e) => {
+        if (!silent) setErrorMsg(firebaseAuthErrorMessage(e));
+        return false;
+      });
+    }, [fb, user, setLastCloudBackupAt]);
+
+    (0, import_react.useEffect)(() => {
+      if (!fb || !user || !autoBackupEnabled) return;
+      const ONE_HOUR = 60 * 60 * 1e3;
+      const dueForBackup = !lastCloudBackupAt || Date.now() - new Date(lastCloudBackupAt).getTime() > ONE_HOUR;
+      if (dueForBackup) {
+        lastAutoBackupRef.current = Date.now();
+        backupNow(true);
+      }
+      const interval = setInterval(() => {
+        lastAutoBackupRef.current = Date.now();
+        backupNow(true);
+      }, ONE_HOUR);
+      const onVisibility = () => {
+        if (document.visibilityState === "hidden" && Date.now() - lastAutoBackupRef.current > 5 * 60 * 1e3) {
+          lastAutoBackupRef.current = Date.now();
+          backupNow(true);
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibility);
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener("visibilitychange", onVisibility);
+      };
+      // eslint-disable-next-line
+    }, [fb, user, autoBackupEnabled]);
+
+    const restoreFromCloud = () => {
+      if (!fb || !user) return;
+      setErrorMsg(null);
+      setInfoMsg(null);
+      setBusy(true);
+      const ref = fb.fsMod.doc(fb.db, "backups", user.uid);
+      fb.fsMod.getDoc(ref).then((snap) => {
+        setBusy(false);
+        if (!snap.exists()) {
+          setErrorMsg("No cloud backup found for this account yet.");
+          return;
+        }
+        const payload = snap.data();
+        const entries = payload && payload.data ? Object.entries(payload.data) : [];
+        if (entries.length === 0) {
+          setErrorMsg("The cloud backup for this account is empty.");
+          return;
+        }
+        if (!window.confirm(`Restore ${entries.length} saved field(s) from the cloud (backed up ${payload.exportedAt})? This will REPLACE everything currently in this browser. This cannot be undone.`)) {
+          return;
+        }
+        applyPcgsBackupData(payload.data);
+        window.alert("Restore complete — the tool will now reload.");
+        window.location.reload();
+      }).catch((e) => {
+        setBusy(false);
+        setErrorMsg(firebaseAuthErrorMessage(e));
+      });
+    };
+
+    const handleAuthSubmit = (e) => {
+      e.preventDefault();
+      if (!fb) return;
+      setErrorMsg(null);
+      setInfoMsg(null);
+      if (!formEmail || !formPassword) {
+        setErrorMsg("Enter both an email and a password.");
+        return;
+      }
+      setBusy(true);
+      const action = authView === "signup" ? fb.authMod.createUserWithEmailAndPassword(fb.auth, formEmail.trim(), formPassword) : fb.authMod.signInWithEmailAndPassword(fb.auth, formEmail.trim(), formPassword);
+      action.then(() => {
+        setBusy(false);
+        setFormPassword("");
+        setInfoMsg(authView === "signup" ? "Account created — you're signed in." : "Signed in.");
+      }).catch((e) => {
+        setBusy(false);
+        setErrorMsg(firebaseAuthErrorMessage(e));
+      });
+    };
+
+    const handleSignOut = () => {
+      if (!fb) return;
+      fb.authMod.signOut(fb.auth).then(() => {
+        setInfoMsg(null);
+        setErrorMsg(null);
+      });
+    };
+
+    const inputStyle = {
+      background: "var(--bg-inset)",
+      border: "1px solid var(--border-default)",
+      color: "var(--text-primary)",
+      fontFamily: "'IBM Plex Sans',sans-serif",
+      fontSize: 13.5,
+      padding: "8px 10px",
+      borderRadius: 8,
+      width: "100%",
+      boxSizing: "border-box"
+    };
+
+    let body;
+    if (sdkState === "loading") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { color: "var(--text-muted)" }, children: "Connecting to cloud services…" });
+    } else if (sdkState === "offline") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { borderLeftColor: "#FF9F1C", color: "#FF9F1C" }, children: "⚠ Couldn't reach cloud services right now — this needs an internet connection. Everything else in this tool still works fully offline; try this card again once you're back online." });
+    } else if (!user) {
+      body = /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, marginBottom: 12 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "asc-apply-btn", style: { borderColor: authView === "signin" ? "#00D9A3" : "var(--border-default)", color: authView === "signin" ? "#00D9A3" : "var(--text-muted)" }, onClick: () => { setAuthView("signin"); setErrorMsg(null); setInfoMsg(null); }, children: "Sign In" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "asc-apply-btn", style: { borderColor: authView === "signup" ? "#00D9A3" : "var(--border-default)", color: authView === "signup" ? "#00D9A3" : "var(--text-muted)" }, onClick: () => { setAuthView("signup"); setErrorMsg(null); setInfoMsg(null); }, children: "Create Account" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { onSubmit: handleAuthSubmit, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Email" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "email", value: formEmail, onChange: (e) => setFormEmail(e.target.value), style: inputStyle, placeholder: "you@company.com", autoComplete: "email" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Password" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", value: formPassword, onChange: (e) => setFormPassword(e.target.value), style: inputStyle, placeholder: authView === "signup" ? "At least 6 characters" : "••••••••", autoComplete: authView === "signup" ? "new-password" : "current-password" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "submit", className: "asc-apply-btn", disabled: busy, style: { borderColor: "#00D9A3", color: "#00D9A3", marginTop: 4 }, children: busy ? "Please wait…" : authView === "signup" ? "Create Account" : "Sign In" })
+        ] })
+      ] });
+    } else {
+      const daysSince = lastCloudBackupAt ? Math.floor((Date.now() - new Date(lastCloudBackupAt).getTime()) / (1e3 * 60 * 60 * 24)) : null;
+      body = /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, color: "var(--text-primary)" }, children: [
+            "✓ Signed in as ",
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: user.email })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "asc-apply-btn", style: { borderColor: "var(--border-default)", color: "var(--text-muted)", fontSize: 11.5 }, onClick: handleSignOut, children: "Sign Out" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 10, color: daysSince === null ? "#FF9F1C" : "#00D9A3", borderLeftColor: daysSince === null ? "#FF9F1C" : "#00D9A3", fontWeight: 700 }, children: lastCloudBackupAt ? `☁️ Last cloud backup: ${lastCloudBackupAt.slice(0, 16).replace("T", " ")} (${daysSince} day(s) ago).` : "⚠ No cloud backup for this account yet." }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "checkbox-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: autoBackupEnabled, onChange: (e) => setAutoBackupEnabled(e.target.checked) }),
+          "Automatic hourly cloud backup while this tool is open"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "asc-apply-btn", style: { borderColor: "#00D9A3", color: "#00D9A3" }, disabled: busy, onClick: () => { setBusy(true); backupNow(false).then(() => setBusy(false)); }, children: "☁️ Backup Now" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "asc-apply-btn", style: { borderColor: "#4FA8D8", color: "#4FA8D8" }, disabled: busy, onClick: restoreFromCloud, children: "⬇️ Restore From Cloud" })
+        ] })
+      ] });
+    }
+
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full", id: "sec-cloud-sync", style: { borderColor: "#00D9A3" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#00D9A3" }, children: [
+        "Cloud Backup & Login",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: "Optional: sign in to keep an automatic, timestamped copy of everything in this tool safe in the cloud, separate from this device — and restore it on a new phone or after a browser reset. This tool still works fully offline without signing in; this is an extra safety net, not a requirement. This is a periodic snapshot (like the Export/Import backup below), not live real-time sync between devices — restoring loads the last cloud snapshot, it doesn't merge changes." }),
+      errorMsg && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 10, borderLeftColor: "#FF6B6B", color: "#FF6B6B" }, children: [
+        "⚠ ",
+        errorMsg
+      ] }),
+      infoMsg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 10, borderLeftColor: "#00D9A3", color: "#00D9A3" }, children: infoMsg }),
+      body
+    ] });
+  }
+function CustomFormulaCard({ materialPrices, priceCurrency, customerSystemVol }) {
     const [customMaterials, setCustomMaterials] = usePersistedState("customMaterials", [
       { id: 1, name: "", pct: 0, refLow: "", refHigh: "" }
     ]);
@@ -42966,12 +43227,13 @@ function ManufacturingFormulaTierBlock({ tier }) {
             /* ===================== SETTINGS & DATA ===================== */
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DataPersistenceCard, {}),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BackupRestoreCard, { setLastBackupDate, lastBackupDate }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CloudSyncCard, {}),
             /* ---- SECTION: Version & Data Log (sec-version-log) ---- */
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full", id: "sec-version-log", style: { borderColor: "var(--text-faint)" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { style: { color: "var(--text-faint)" }, children: "Version & Data Log" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12 }, children: "Every reference range in this tool is sourced from a real, citable document — a patent, a commercial technical bulletin, a peer-reviewed paper, or a documented field case study. This log shows the last several updates in plain language so it's quick to skim; the full technical history (every version since the tool started) is kept safe separately if it's ever needed." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 20, padding: 16, background: "var(--bg-inset-alt)", border: "1px solid #1B3A4D", borderRadius: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.133" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.134" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a Dashboard home screen that surfaces what needs attention across the whole tool, get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 245 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 63 calculator/reference cards across 13 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "Every field auto-saves locally in this browser (no account or internet needed), every reference figure is sourced and citable, and every calculation has been verified against a hand-calculated expected value using real-browser testing — not assumed correct because the code looks right." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }, children: [
@@ -42980,7 +43242,7 @@ function ManufacturingFormulaTierBlock({ tier }) {
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "version-log-current", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.133" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.134" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-09-29" })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "asc-formula-table", style: { marginTop: 12 }, children: [
@@ -42990,6 +43252,11 @@ function ManufacturingFormulaTierBlock({ tier }) {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "What changed" })
                 ] }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.134" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Added a new optional “Cloud Backup & Login” card (Settings tab): sign in with email/password (Firebase Authentication) to keep an automatic, hourly, timestamped snapshot of everything in this tool (jobs, prices, batch logs, client history, custom formulas — the same data the existing Export/Import Backup covers) saved to the cloud, separate from this device, plus a manual “Backup Now” / “Restore From Cloud” pair. Deliberately kept optional and additive: the tool still works fully offline exactly as before with no sign-in required — the cloud SDK loads lazily only when this card is opened, and if there's no internet it fails gracefully with a plain message rather than breaking anything else. This is a periodic snapshot like the existing local Export/Import backup, not live real-time multi-device sync — restoring loads the last cloud snapshot and replaces local data, it doesn't merge changes. First step of the 3-part reliability upgrade Gamal asked for (hosting on a stable link, cloud backup, login/permissions) — hosting shipped separately via GitHub Pages this same day; per-user roles/permissions (who can edit vs. just view) are a follow-up, not yet built. Needs Gamal's own Firestore security rules (restricting each account to its own backup document) and a real end-to-end sign-up/backup/restore test on the live hosted link before relying on it — this could not be tested from this sandbox, which has no route to Google's Firebase servers." })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.133" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 29" }),
@@ -43034,11 +43301,6 @@ function ManufacturingFormulaTierBlock({ tier }) {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.125" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 28" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Search now works across the whole tool: the Manufacturing Formula Library searches all systems at once instead of only the tab you're on, and the header search bar now also finds formulas and raw materials by name/ingredient, not just card titles — click a result to jump straight there with your search already filled in." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.124" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 27" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Added 53 new research-sourced cleaning-solution formulas (from patents, technical bulletins and peer-reviewed papers) as a new \"Cleaning Solutions\" tab in the Manufacturing Formula Library, covering acid descaling/rust removal, alkaline/biofilm cleaning, passivation, and disinfection — for browsing and reference, not yet built into the interactive dosing calculators." })
                   ] }),
                 ] })
               ] }),
