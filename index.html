@@ -23901,7 +23901,7 @@ var PROGRAM_GROUP_LIMITS = { "biocide-nonox": 2 };
     });
     return result;
   }
-  function GlobalSearchBar({ activeTab, setActiveTab }) {
+  function GlobalSearchBar({ activeTab, setActiveTab, autoFocus }) {
     const [query, setQuery] = (0, import_react.useState)("");
     const [isOpen, setIsOpen] = (0, import_react.useState)(false);
     const qLower = query.trim().toLowerCase();
@@ -23968,7 +23968,8 @@ var PROGRAM_GROUP_LIMITS = { "biocide-nonox": 2 };
             onFocus: () => setIsOpen(true),
             onBlur: () => setTimeout(() => setIsOpen(false), 150),
             placeholder: "Search any card, formula, or material across the whole tool\u2026 (e.g. TTA, NaOH, Boiler)",
-            className: "global-search-input"
+            className: "global-search-input",
+            autoFocus: !!autoFocus
           }
         ),
         query && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "global-search-clear", onClick: () => setQuery(""), "aria-label": "Clear search", children: "\u2715" })
@@ -38187,7 +38188,40 @@ function MoldPassivationCard() {
     ] });
   }
 
-  function DashboardSummaryCard({ setActiveTab, batchLogEntries, materialPrices, priceCurrency, myProductLibrary, materialInventory, lastBackupDate }) {
+  function OperatingGuideCard() {
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-operating-guide", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
+        "Operating Guide — How To Use This Tool",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-primary)" }, children: "\u{1F3E0} Dashboard — the 6 cards" }),
+        " on the home screen are your main entry points: Cooling Tower, Chillers, Boilers, and RO each open that system's full workflow (Water Analysis → Products & Dosing → Biocide → Cleaning). Cleaners opens cleaning/descaling products for any system. Troubleshooting Guide opens diagnosis & corrective-action references for all systems. Tap a card to jump straight in — a red badge on a card means something needs attention (an overdue task, low stock, and so on)."
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-primary)" }, children: "\u{1F514} Alerts bell (top-left)" }),
+        " shows everything that needs your attention right now, all in one place: overdue or due-today schedule tasks, raw materials at or below their reorder point, a raw material whose price moved since you last used it in a batch, a client site whose water readings are trending the wrong way, and a reminder when you haven't backed up recently. The number on the bell is the total count. Tap any alert in the list to jump straight to it."
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-primary)" }, children: "⚙️ Settings gear (next to the bell)" }),
+        " opens this exact menu — Company Profile & Branding, Data & Auto-Save, Backup & Restore All Data, Cloud Backup & Login, the Version & Data Log, and this guide. Tap any item in that menu to jump straight to it."
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-primary)" }, children: "\u{1F50D} Search and \u{1F9ED} Quick Jump icons" }),
+        " (just under the header, on every tab) are collapsed by default to keep the screen clean — tap either one to expand it. Search finds any card, formula, or raw material across the whole tool by name. Quick Jump takes you straight to a specific product line for whichever system you currently have selected."
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-primary)" }, children: "← Back and \u{1F3E0} Home" }),
+        " appear at the top of every tab except the Dashboard itself. Back retraces your last few taps, one at a time. Home always returns you straight to the Dashboard, no matter how deep you are."
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "formula-note", style: { marginBottom: 0, fontSize: 11 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: "Your data stays on this device." }),
+        " Everything you type saves automatically in this browser — see Data & Auto-Save below for exactly what that means, and Backup & Restore All Data to export a copy regularly so nothing is ever at risk of being lost."
+      ] })
+    ] });
+  }
+
+function DashboardSummaryCard({ setActiveTab, batchLogEntries, materialPrices, priceCurrency, myProductLibrary, materialInventory, lastBackupDate }) {
     function jumpTo(tab, id) {
       setActiveTab(tab);
       setTimeout(() => {
@@ -39754,7 +39788,41 @@ function MaterialInventoryCard({ materialInventory, setMaterialInventory, materi
     });
     return alerts;
   }
-  function computeBatchMarginRows(batchLogEntries, materialPrices, myProductLibrary) {
+  function exportBackupData(setLastBackupDate) {
+    try {
+      const backup = {};
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith("pcgs_")) {
+          backup[key] = window.localStorage.getItem(key);
+        }
+      }
+      const keyCount = Object.keys(backup).length;
+      if (keyCount === 0) {
+        window.alert("Nothing to back up yet — no saved data found.");
+        return false;
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const payload = { exportedAt: nowIso, toolVersion: "v9.47", keyCount, data: backup };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const today2 = nowIso.slice(0, 10);
+      a.href = url;
+      a.download = `PowerChemicals-Backup-${today2}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setLastBackupDate(today2);
+      return true;
+    } catch (e) {
+      window.alert("Backup failed — your browser may be blocking storage or file access.");
+      return false;
+    }
+  }
+
+function computeBatchMarginRows(batchLogEntries, materialPrices, myProductLibrary) {
     const rows = batchLogEntries.map((e) => {
       const info = getBatchCostInfo(e, materialPrices);
       const product = myProductLibrary.find((p) => p.name.trim().toLowerCase() === (info.entry.productName || "").trim().toLowerCase());
@@ -40500,37 +40568,7 @@ function MaterialInventoryCard({ materialInventory, setMaterialInventory, materi
                   {
                     className: "asc-apply-btn",
                     style: { borderColor: "#00D9A3", color: "#00D9A3" },
-                    onClick: () => {
-                      try {
-                        const backup = {};
-                        for (let i = 0; i < window.localStorage.length; i++) {
-                          const key = window.localStorage.key(i);
-                          if (key && key.startsWith("pcgs_")) {
-                            backup[key] = window.localStorage.getItem(key);
-                          }
-                        }
-                        const keyCount = Object.keys(backup).length;
-                        if (keyCount === 0) {
-                          window.alert("Nothing to back up yet \u2014 no saved data found.");
-                          return;
-                        }
-                        const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-                        const payload = { exportedAt: nowIso, toolVersion: "v9.47", keyCount, data: backup };
-                        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        const today2 = nowIso.slice(0, 10);
-                        a.href = url;
-                        a.download = `PowerChemicals-Backup-${today2}.json`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        setLastBackupDate(today2);
-                      } catch (e) {
-                        window.alert("Backup failed \u2014 your browser may be blocking storage or file access.");
-                      }
-                    },
+                    onClick: () => exportBackupData(setLastBackupDate),
                     children: "\u2B07\uFE0F Export Backup"
                   }
                 ),
@@ -42658,7 +42696,7 @@ function ManufacturingValidationChecklistCard({ researchValidationStatus, setRes
   }
 
 function GradeSelector() {
-    const [uiTheme, setUiTheme] = usePersistedState("uiTheme", "dark");
+    const [uiTheme, setUiTheme] = usePersistedState("uiTheme", "light");
     (0, import_react.useEffect)(() => {
       document.documentElement.setAttribute("data-theme", uiTheme);
     }, [uiTheme]);
@@ -42862,7 +42900,6 @@ function GradeSelector() {
     const [certStdProducts, setCertStdProducts] = (0, import_react.useState)([{ category: CERT_PRODUCT_CATEGORIES[0], qty: "", unit: "kg/m\xB3" }]);
     const [certStdEngineerName, setCertStdEngineerName] = usePersistedState("certStdEngineerName", "");
     const [lastBackupDate, setLastBackupDate] = usePersistedState("lastBackupDate", "");
-    const [backupBannerDismissed, setBackupBannerDismissed] = (0, import_react.useState)(false);
     const [navMenuOpen, setNavMenuOpen] = (0, import_react.useState)(false);
     const [navExpandedGroup, setNavExpandedGroup] = (0, import_react.useState)(null);
     const navMenuRef = (0, import_react.useRef)(null);
@@ -42877,6 +42914,91 @@ function GradeSelector() {
       document.addEventListener("mousedown", onDocClick);
       return () => document.removeEventListener("mousedown", onDocClick);
     }, [navMenuOpen]);
+    const [notifOpen, setNotifOpen] = (0, import_react.useState)(false);
+    const notifRef = (0, import_react.useRef)(null);
+    (0, import_react.useEffect)(() => {
+      if (!notifOpen) return;
+      const onDocClick = (e) => {
+        if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      };
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }, [notifOpen]);
+    const [searchExpanded, setSearchExpanded] = (0, import_react.useState)(false);
+    const searchExpandRef = (0, import_react.useRef)(null);
+    (0, import_react.useEffect)(() => {
+      if (!searchExpanded) return;
+      const onDocClick = (e) => {
+        if (searchExpandRef.current && !searchExpandRef.current.contains(e.target)) setSearchExpanded(false);
+      };
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }, [searchExpanded]);
+    const [quickJumpExpanded, setQuickJumpExpanded] = (0, import_react.useState)(false);
+    const quickJumpExpandRef = (0, import_react.useRef)(null);
+    (0, import_react.useEffect)(() => {
+      if (!quickJumpExpanded) return;
+      const onDocClick = (e) => {
+        if (quickJumpExpandRef.current && !quickJumpExpandRef.current.contains(e.target)) setQuickJumpExpanded(false);
+      };
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }, [quickJumpExpanded]);
+    const [gearOpen, setGearOpen] = (0, import_react.useState)(false);
+    const gearRef = (0, import_react.useRef)(null);
+    (0, import_react.useEffect)(() => {
+      if (!gearOpen) return;
+      const onDocClick = (e) => {
+        if (gearRef.current && !gearRef.current.contains(e.target)) setGearOpen(false);
+      };
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }, [gearOpen]);
+    const [closeDialogOpen, setCloseDialogOpen] = (0, import_react.useState)(false);
+    function attemptCloseApp() {
+      window.close();
+      setTimeout(() => {
+        window.alert("Most browsers only let a page close itself if a script opened the tab, so this one may not have closed automatically. You can close this browser tab yourself now — your data is safe, it's all saved in this browser already.");
+      }, 250);
+    }
+    const prevActiveTabRef = (0, import_react.useRef)(activeTab);
+    const tabHistoryRef = (0, import_react.useRef)([]);
+    const isBackNavRef = (0, import_react.useRef)(false);
+    (0, import_react.useEffect)(() => {
+      if (prevActiveTabRef.current !== activeTab) {
+        if (!isBackNavRef.current) {
+          tabHistoryRef.current.push(prevActiveTabRef.current);
+          if (tabHistoryRef.current.length > 20) tabHistoryRef.current.shift();
+        }
+        isBackNavRef.current = false;
+        prevActiveTabRef.current = activeTab;
+      }
+    }, [activeTab]);
+    function goBackTab() {
+      const prev = tabHistoryRef.current.pop();
+      isBackNavRef.current = true;
+      setActiveTab(prev || "dashboard");
+    }
+    function jumpToSettingsSection(id) {
+      setActiveTab("settings");
+      setGearOpen(false);
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.setAttribute("data-collapsed", "false");
+          uncollapseAncestors(el);
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+    }
+    const GEAR_MENU_ITEMS = [
+      { icon: "\u{1F3E2}", label: "Company Profile & Branding", id: "sec-company-settings" },
+      { icon: "\u{1F4BE}", label: "Data & Auto-Save", id: "sec-data-persistence" },
+      { icon: "\u{1F4E6}", label: "Backup & Restore All Data", id: "sec-backup-restore" },
+      { icon: "☁️", label: "Cloud Backup & Login", id: "sec-cloud-sync" },
+      { icon: "\u{1F4DC}", label: "Version & Data Log", id: "sec-version-log" },
+      { icon: "\u{1F4D8}", label: "Operating Guide", id: "sec-operating-guide" }
+    ];
     const NAV_CLEANING_PRODUCTS = [
       { key: "cleaning", targetId: "sec-clean-tower-descale", label: "Cooling Tower Cleaning" },
       { key: "cleaning", targetId: "sec-clean-chiller-descale", label: "Chiller Loop Cleaning" },
@@ -42889,7 +43011,7 @@ function GradeSelector() {
       { key: "boiler", icon: "\u{1F525}", label: "Boilers", blurb: "Water Analysis, Products & Cleaning", system: "boiler", directTab: "analysis" },
       { key: "ro", icon: "\u{1F4A7}", label: "RO", blurb: "Water Analysis, Products, RO/DI & Resin", system: "ro", directTab: "analysis" },
       { key: "cleaners", icon: "\u{1F9F4}", label: "Cleaners", blurb: "Tower, Chiller, Heat Exchanger & Mold/Die cleaning", system: null, items: NAV_CLEANING_PRODUCTS },
-      { key: "settingsgrp", icon: "⚙️", label: "Settings", blurb: "Company, backup & tool settings", system: null, directTab: "settings" }
+      { key: "troubleshooting", icon: "\u{1F6E0}️", label: "Troubleshooting Guide", blurb: "Diagnose & resolve problems across all systems", system: null, directTab: "troubleshooting" }
     ];
     const activeNavGroup = NAV_GROUPS.find((g) => g.key === navExpandedGroup);
     const closeNav = () => { setNavMenuOpen(false); setNavExpandedGroup(null); };
@@ -42907,20 +43029,101 @@ function GradeSelector() {
         setNavMenuOpen(true);
       }
     };
-    const shouldShowBackupReminder = (0, import_react.useMemo)(() => {
-      if (backupBannerDismissed) return false;
-      let hasSavedJob = false;
+    const navBadgeCounts = (0, import_react.useMemo)(() => {
+      const bySystem = { tower: 0, chiller: 0, boiler: 0, ro: 0 };
+      let tasks = [];
       try {
-        hasSavedJob = getSavedJobs().length > 0;
+        tasks = getScheduleTasks();
       } catch (e) {
       }
-      const hasProductionData = batchLogEntries.length > 0 || Object.values(materialInventory).some((item) => (parseFloat(item && item.qty) || 0) > 0);
-      if (!hasSavedJob && !hasProductionData) return false;
-      if (!lastBackupDate) return true;
-      const daysSince = (Date.now() - new Date(lastBackupDate).getTime()) / (1e3 * 60 * 60 * 24);
-      const threshold = hasProductionData ? 7 : 14;
-      return daysSince >= threshold;
-    }, [lastBackupDate, backupBannerDismissed, jobsListRefreshKey, batchLogEntries, materialInventory]);
+      tasks.forEach((task) => {
+        if (!(task.system in bySystem)) return;
+        const info = computeScheduleStatus(task, getScheduleLog(task.id));
+        if (info.status === "overdue" || info.status === "due-today") bySystem[task.system]++;
+      });
+      let materialsLow = 0;
+      Object.keys(materialInventory).forEach((name) => {
+        const item = normalizeInvItem(materialInventory[name]);
+        const qty = parseFloat(item.qty) || 0;
+        const reorder = parseFloat(item.reorderPoint) || 0;
+        if (reorder <= 0) return;
+        if (qty <= reorder) materialsLow++;
+      });
+      return {
+        tower: bySystem.tower,
+        chiller: bySystem.chiller,
+        boiler: bySystem.boiler,
+        ro: bySystem.ro,
+        cleaners: materialsLow
+      };
+    }, [materialInventory, jobsListRefreshKey]);
+    const NAV_BADGE_META = {
+      tower: { icon: "⚠️", label: "Due/Overdue", sev: "high" },
+      chiller: { icon: "⚠️", label: "Due/Overdue", sev: "high" },
+      boiler: { icon: "⚠️", label: "Due/Overdue", sev: "high" },
+      ro: { icon: "⚠️", label: "Due/Overdue", sev: "high" },
+      cleaners: { icon: "\u{1F4E6}", label: "Materials Low", sev: "medium" }
+    };
+    function jumpToAlert(tab, id) {
+      setActiveTab(tab);
+      setNotifOpen(false);
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.setAttribute("data-collapsed", "false");
+          uncollapseAncestors(el);
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+    }
+    const headerAlertsSites = getClientSites();
+    const headerDriftAlerts = (0, import_react.useMemo)(() => getPriceDriftAlerts(batchLogEntries, materialPrices), [batchLogEntries, materialPrices]);
+    const headerScheduleRows = (0, import_react.useMemo)(() => {
+      let tasks = [];
+      try {
+        tasks = getScheduleTasks();
+      } catch (e) {
+      }
+      return tasks.map((task) => ({ task, info: computeScheduleStatus(task, getScheduleLog(task.id)) }));
+    }, [jobsListRefreshKey]);
+    const headerAlerts = (0, import_react.useMemo)(() => {
+      const out = [];
+      headerScheduleRows.forEach(({ task, info }) => {
+        if (info.status === "overdue") {
+          out.push({ severity: "high", text: `"${task.name}" is overdue (was due ${info.nextDue})`, action: () => jumpToAlert("troubleshooting", "sec-schedule-tracker") });
+        } else if (info.status === "due-today") {
+          out.push({ severity: "medium", text: `"${task.name}" is due today`, action: () => jumpToAlert("troubleshooting", "sec-schedule-tracker") });
+        }
+      });
+      headerDriftAlerts.forEach((d) => {
+        out.push({ severity: "medium", text: `${d.name} price moved ${d.changePct > 0 ? "up" : "down"} ${Math.abs(d.changePct).toFixed(0)}% since its last use in a batch`, action: () => jumpToAlert("production", "sec-batch-cost") });
+      });
+      Object.keys(materialInventory).forEach((name) => {
+        const item = normalizeInvItem(materialInventory[name]);
+        const qty = parseFloat(item.qty) || 0;
+        const reorder = parseFloat(item.reorderPoint) || 0;
+        if (reorder <= 0) return;
+        if (qty <= 0) {
+          out.push({ severity: "high", text: `${name} is out of stock`, action: () => jumpToAlert("production", "sec-purchase-orders") });
+        } else if (qty <= reorder) {
+          out.push({ severity: "medium", text: `${name} is at or below its reorder point (${qty} ${item.unit} left)`, action: () => jumpToAlert("production", "sec-purchase-orders") });
+        }
+      });
+      headerAlertsSites.forEach((site) => {
+        const readings = getClientReadings(site.id);
+        const sortedAsc = [...readings].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+        const flags = getTrendFlags(sortedAsc);
+        if (flags.length > 0) {
+          out.push({ severity: "medium", text: `${site.clientName} — ${site.siteName}: ${flags[0].detail}${flags.length > 1 ? ` (+${flags.length - 1} more)` : ""}`, action: () => jumpToAlert("customer", "sec-client-history") });
+        }
+      });
+      const daysSinceBackup2 = lastBackupDate ? Math.floor((Date.now() - new Date(lastBackupDate).getTime()) / (1e3 * 60 * 60 * 24)) : null;
+      if (daysSinceBackup2 === null || daysSinceBackup2 >= 7) {
+        out.push({ severity: daysSinceBackup2 === null ? "medium" : "high", text: daysSinceBackup2 === null ? "No backup on record yet" : `Last backup was ${daysSinceBackup2} day(s) ago`, action: () => jumpToAlert("settings", "sec-backup-restore") });
+      }
+      const severityOrder = { high: 0, medium: 1, low: 2 };
+      return out.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+    }, [headerScheduleRows, headerDriftAlerts, materialInventory, lastBackupDate, headerAlertsSites.length]);
     const tabCompletion = (0, import_react.useMemo)(() => {
       let hasSavedJob = false;
       try {
@@ -43309,10 +43512,10 @@ function GradeSelector() {
           --text-on-accent: #151C24; --text-on-tint: #D4F5EA;
         }
         :root[data-theme="light"] {
-          --bg-page: #F4F5F3; --bg-card: #FFFFFF; --bg-inset: #EEF1F0; --bg-control: #E9ECEB;
-          --bg-inset-alt: #E7F0EF; --bg-tint: #E3F7F1; --bg-hover: #DCE1DF;
-          --border-default: #D8DEDC; --border-blue: #C7D9E2;
-          --text-primary: #10171C; --text-secondary: #33414A; --text-muted: #5B6B74; --text-faint: #78878F;
+          --bg-page: #F7F1E4; --bg-card: #FFFFFF; --bg-inset: #F1E9D8; --bg-control: #EFE7D3;
+          --bg-inset-alt: #EAF3EE; --bg-tint: #E3F3EC; --bg-hover: #ECE2CB;
+          --border-default: #E3D7BC; --border-blue: #DCCFAE;
+          --text-primary: #2A2217; --text-secondary: #4E4330; --text-muted: #7C7259; --text-faint: #998D70;
           --text-on-accent: #151C24; --text-on-tint: #0A6B54;
         }
         .theme-toggle-btn {
@@ -43322,6 +43525,70 @@ function GradeSelector() {
           transition: all .12s;
         }
         .theme-toggle-btn:hover { border-color: #00D9A3; color: var(--text-primary); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .header-icon-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+        .header-icon-btn-wrap { position: relative; }
+        .header-icon-btn {
+          position: relative; display: inline-flex; align-items: center; justify-content: center;
+          width: 38px; height: 38px; border-radius: 50%; background: var(--bg-control);
+          border: 1px solid var(--border-default); font-size: 17px; cursor: pointer; transition: all .12s;
+        }
+        .header-icon-btn:hover { border-color: #00D9A3; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .header-icon-btn-power:hover { border-color: #D64545; color: #D64545; }
+        .close-app-overlay {
+          position: fixed; inset: 0; background: rgba(10,14,18,0.6); display: flex; align-items: center;
+          justify-content: center; z-index: 200; padding: 20px;
+        }
+        .close-app-dialog {
+          background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 14px;
+          padding: 22px; max-width: 360px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+        }
+        .close-app-dialog-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .close-app-dialog-body { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+        .close-app-dialog-actions { display: flex; flex-direction: column; gap: 8px; }
+        .close-app-btn {
+          font-family: 'IBM Plex Sans',sans-serif; font-size: 13px; font-weight: 600; padding: 10px 16px;
+          border-radius: 10px; cursor: pointer; border: 1px solid var(--border-default);
+          background: var(--bg-control); color: var(--text-primary); transition: all .12s;
+        }
+        .close-app-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .close-app-btn-primary { background: #00D9A3; border-color: #00D9A3; color: #0A0E12; }
+        .close-app-btn-primary:hover { background: #00EBB0; border-color: #00EBB0; }
+        .close-app-btn-ghost { background: transparent; border-color: transparent; color: var(--text-faint); }
+        .close-app-btn-ghost:hover { color: var(--text-secondary); box-shadow: none; transform: none; }
+        .header-icon-badge {
+          position: absolute; top: -4px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px;
+          border-radius: 9px; background: #D64545; color: #fff; font-family: 'IBM Plex Mono',monospace;
+          font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+          line-height: 1; border: 2px solid var(--bg-page);
+        }
+        .header-notif-dropdown {
+          position: absolute; top: 46px; left: 0; width: 320px; max-width: calc(100vw - 40px);
+          max-height: 360px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-default);
+          border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); z-index: 50; padding: 8px;
+        }
+        .header-notif-dropdown-title {
+          font-family: 'IBM Plex Mono',monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+          color: var(--text-faint); font-weight: 700; padding: 6px 8px;
+        }
+        .header-notif-empty { padding: 14px 8px; color: var(--text-muted); font-size: 13px; }
+        .header-notif-row {
+          display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left;
+          background: none; border: none; border-radius: 8px; padding: 8px; cursor: pointer;
+          font-family: 'IBM Plex Sans',sans-serif; font-size: 12.5px; color: var(--text-primary); line-height: 1.4;
+          transition: background .1s;
+        }
+        .header-notif-row:hover { background: var(--bg-hover); }
+        .header-notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+        .header-notif-dot.sev-high { background: #D64545; }
+        .header-notif-dot.sev-medium { background: #C77E1C; }
+        .header-collapsible-row { max-width: 1020px; margin: 14px auto 0; padding: 0 20px; display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+        .header-collapsible-item { display: flex; }
+        .header-collapsed-btn {
+          display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+          border-radius: 50%; background: var(--bg-control); border: 1px solid var(--border-default);
+          font-size: 16px; cursor: pointer; transition: all .12s;
+        }
+        .header-collapsed-btn:hover { border-color: #00D9A3; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .panel { background: var(--bg-page); color: var(--text-primary); font-family: 'IBM Plex Sans','Segoe UI',sans-serif; min-height: 100vh; padding: 0 0 60px; }
         .header {
           max-width: 1020px; margin: 0 auto; padding: 36px 20px 22px;
@@ -43487,25 +43754,15 @@ function GradeSelector() {
           .wizard-nav-next { margin-left: 0; }
         }
 
-        .backup-reminder-banner {
-          max-width: 980px; margin: 0 auto 16px; padding: 12px 16px; border-radius: 8px;
-          background: rgba(224, 138, 46, 0.1); border: 1px solid #E08A2E;
-          display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        .tab-breadcrumb-bar { max-width: 1020px; margin: 14px auto 0; padding: 0 20px; display: flex; gap: 10px; }
+        .tab-breadcrumb-btn {
+          display: inline-flex; align-items: center; gap: 5px; background: var(--bg-control);
+          border: 1px solid var(--border-default); border-radius: 10px; padding: 7px 13px;
+          font-family: 'IBM Plex Sans',sans-serif; font-size: 12.5px; font-weight: 600; color: var(--text-muted);
+          cursor: pointer; transition: all .12s;
         }
-        .backup-reminder-banner span { font-size: 13px; color: var(--text-primary); line-height: 1.5; flex: 1; min-width: 240px; }
-        .backup-reminder-btn {
-          font-family: 'IBM Plex Sans',sans-serif; font-size: 12.5px; font-weight: 600; padding: 8px 14px;
-          border-radius: 10px; cursor: pointer; white-space: nowrap; transition: all .12s;
-          background: transparent; border: 1px solid var(--text-faint); color: var(--text-muted);
-        }
-        .backup-reminder-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); transform: translateY(-1px); }
-        .backup-reminder-btn-primary { background: #E08A2E; border-color: #E08A2E; color: var(--text-on-accent); }
-        .backup-reminder-btn-primary:hover { background: #FF9F1C; border-color: #FF9F1C; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
-        @media (max-width: 700px) {
-          .backup-reminder-banner { flex-direction: column; align-items: stretch; }
-          .backup-reminder-btn { width: 100%; padding: 12px 14px; }
-        }
-        @media print { .backup-reminder-banner { display: none !important; } }
+        .tab-breadcrumb-btn:hover { border-color: #00D9A3; color: var(--text-primary); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        @media print { .tab-breadcrumb-bar { display: none !important; } }
 
         .jump-back-banner {
           max-width: 980px; margin: 0 auto 16px; padding: 10px 16px; border-radius: 8px;
@@ -43565,8 +43822,14 @@ function GradeSelector() {
         }
         .tab-nav-group-card:hover { border-color: #E08A2E; transform: translateY(-1px); }
         .tab-nav-group-card.active { border-color: #E08A2E; background: rgba(224,138,46,0.1); }
+        .tab-nav-group-icon-wrap { display: inline-flex; align-items: flex-start; gap: 4px; }
         .tab-nav-group-icon { font-size: 26px; line-height: 1; }
         .tab-nav-group-label { font-size: 13px; font-weight: 600; color: var(--text-primary); text-align: center; }
+        .tab-nav-group-badge {
+          min-width: 16px; height: 16px; padding: 0 4px; margin-top: -2px;
+          border-radius: 8px; background: #D64545; color: #fff; font-family: 'IBM Plex Mono',monospace;
+          font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+        }
         .tab-nav-panel-sub { grid-template-columns: 1fr; display: block; }
         .tab-nav-back-row {
           display: flex; align-items: center; justify-content: space-between; width: 100%;
@@ -43593,15 +43856,24 @@ function GradeSelector() {
         }
         .home-dash-card {
           display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-          background: var(--bg-card); border: 1px solid var(--border-blue); border-radius: 12px;
-          padding: 22px 16px; cursor: pointer; transition: all .14s ease; font-family: 'IBM Plex Sans',sans-serif;
-          text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+          background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 14px;
+          padding: 24px 16px; cursor: pointer; transition: all .14s ease; font-family: 'IBM Plex Sans',sans-serif;
+          text-align: center; box-shadow: 0 2px 8px rgba(40,30,10,0.06); position: relative;
         }
-        .home-dash-card:hover { border-color: #E08A2E; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.28); }
-        .home-dash-card.active { border-color: #E08A2E; background: rgba(224,138,46,0.08); }
+        .home-dash-card:hover { border-color: #E08A2E; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(40,30,10,0.10); }
+        .home-dash-card.active { border-color: #E08A2E; background: rgba(224,138,46,0.06); }
         .home-dash-card-icon { font-size: 32px; line-height: 1; }
         .home-dash-card-label { font-size: 15px; font-weight: 700; color: var(--text-primary); }
         .home-dash-card-blurb { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; }
+        .home-dash-card-badge-row {
+          display: flex; align-items: center; gap: 7px; margin-top: 2px; padding-top: 10px;
+          border-top: 1px solid var(--border-default); width: 100%; justify-content: center;
+        }
+        .home-dash-card-badge-icon { font-size: 15px; line-height: 1; }
+        .home-dash-card-badge-num { font-family: 'IBM Plex Mono',monospace; font-size: 17px; font-weight: 700; }
+        .home-dash-card-badge-num.sev-high { color: #D64545; }
+        .home-dash-card-badge-num.sev-medium { color: #C77E1C; }
+        .home-dash-card-badge-label { font-size: 10.5px; color: var(--text-faint); }
         @media (max-width: 700px) {
           .home-dash-grid { grid-template-columns: repeat(2, 1fr); }
         }
@@ -43938,6 +44210,127 @@ function GradeSelector() {
         .tvc-status { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
       ` }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-icon-bar", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-icon-btn-wrap", ref: notifRef, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "button",
+              {
+                type: "button",
+                className: "header-icon-btn",
+                onClick: () => setNotifOpen(!notifOpen),
+                title: "Alerts",
+                "aria-label": "Alerts",
+                children: [
+                  "\u{1F514}",
+                  headerAlerts.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "header-icon-badge", children: headerAlerts.length })
+                ]
+              }
+            ),
+            notifOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-notif-dropdown", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-notif-dropdown-title", children: "Alerts" }),
+              headerAlerts.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-notif-empty", children: "No alerts \u2014 everything looks good." }) : headerAlerts.map((a, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: `header-notif-row sev-${a.severity}`,
+                  onClick: a.action,
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: `header-notif-dot sev-${a.severity}` }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: a.text })
+                  ]
+                },
+                i
+              ))
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "header-icon-btn header-icon-btn-power",
+              onClick: () => setCloseDialogOpen(true),
+              title: "Close the Tool",
+              "aria-label": "Close the Tool",
+              children: "⏻"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-icon-btn-wrap", ref: gearRef, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "header-icon-btn",
+                onClick: () => setGearOpen(!gearOpen),
+                title: "Settings & Guide",
+                "aria-label": "Settings & Guide",
+                children: "\u2699\ufe0f"
+              }
+            ),
+            gearOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-notif-dropdown", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-notif-dropdown-title", children: "Settings & Guide" }),
+              GEAR_MENU_ITEMS.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: "header-notif-row",
+                  onClick: () => jumpToSettingsSection(item.id),
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: item.icon }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: item.label })
+                  ]
+                },
+                i
+              ))
+            ] })
+          ] })
+        ] }),
+        closeDialogOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: "close-app-overlay",
+            onMouseDown: (e) => { if (e.target === e.currentTarget) setCloseDialogOpen(false); },
+            children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "close-app-dialog", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "close-app-dialog-title", children: ["\u23fb ", "Close Power Chemicals Tool?"] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "close-app-dialog-body", children: "Save a backup of all your data before closing?" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "close-app-dialog-actions", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "close-app-btn close-app-btn-primary",
+                    onClick: () => {
+                      exportBackupData(setLastBackupDate);
+                      setCloseDialogOpen(false);
+                      attemptCloseApp();
+                    },
+                    children: "\u{1F4BE} Save & Close"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "close-app-btn",
+                    onClick: () => {
+                      setCloseDialogOpen(false);
+                      attemptCloseApp();
+                    },
+                    children: "Close Without Saving"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "close-app-btn close-app-btn-ghost",
+                    onClick: () => setCloseDialogOpen(false),
+                    children: "Cancel"
+                  }
+                )
+              ] })
+            ] })
+          }
+        ),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-plate", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-eyebrow", children: "Power Chemicals \u2014 Water Treatment Solutions" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
@@ -43960,35 +44353,54 @@ function GradeSelector() {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: "Water Treatment Solutions" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Enter the water analysis. The analysis selects the product; capacity only sizes the dose. Each drum in a real programme is calculated separately." })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlobalSearchBar, { activeTab, setActiveTab }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuickStartPicker, { system, setSystem, activeTab, setActiveTab }),
-      shouldShowBackupReminder && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "backup-reminder-banner", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-          "\u{1F4BE} ",
-          lastBackupDate ? `It's been over a week since your last data backup (${lastBackupDate}).` : "You haven't backed up your data yet.",
-          batchLogEntries.length > 0 ? ` ${batchLogEntries.length} batch record(s), your raw material inventory, prices, jobs, and certificates all live only in this browser \u2014 a quick export protects them.` : " Prices, jobs, and certificates all live only in this browser \u2014 a quick export protects them."
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexShrink: 0 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "button",
-            {
-              className: "backup-reminder-btn backup-reminder-btn-primary",
-              onClick: () => {
-                setActiveTab("settings");
-                setTimeout(() => {
-                  const el = document.getElementById("sec-backup-restore");
-                  if (el) {
-                    el.setAttribute("data-collapsed", "false");
-                    uncollapseAncestors(el);
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }
-                }, 100);
-              },
-              children: "Back Up Now"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "backup-reminder-btn", onClick: () => setBackupBannerDismissed(true), children: "Remind Me Later" })
-        ] })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "header-collapsible-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-collapsible-item", ref: searchExpandRef, children: searchExpanded ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlobalSearchBar, { activeTab, setActiveTab, autoFocus: true }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "header-collapsed-btn",
+            onClick: () => setSearchExpanded(true),
+            title: "Search",
+            "aria-label": "Search",
+            children: "\u{1F50D}"
+          }
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "header-collapsible-item", ref: quickJumpExpandRef, children: quickJumpExpanded ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuickStartPicker, { system, setSystem, activeTab, setActiveTab }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "header-collapsed-btn",
+            onClick: () => setQuickJumpExpanded(true),
+            title: "Quick Jump",
+            "aria-label": "Quick Jump",
+            children: "\u{1F9ED}"
+          }
+        ) })
+      ] }),
+      /* ---- Back / Home breadcrumb bar: every tab except the Dashboard itself (v9.158) ---- */
+      activeTab !== "dashboard" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "tab-breadcrumb-bar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "tab-breadcrumb-btn",
+            onClick: () => { goBackTab(); scrollToTop(); },
+            title: "Back",
+            "aria-label": "Back",
+            children: ["\u2190 ", "Back"]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "tab-breadcrumb-btn",
+            onClick: () => { setActiveTab("dashboard"); scrollToTop(); },
+            title: "Home \u2014 Dashboard",
+            "aria-label": "Home",
+            children: "\u{1F3E0} Home"
+          }
+        )
       ] }),
       /* ---- Hidden on the Dashboard tab itself: the 6 tiles are already shown there full-size (v9.148) ---- */
       activeTab !== "dashboard" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "tab-nav", ref: navMenuRef, children: [
@@ -44007,6 +44419,7 @@ function GradeSelector() {
           ),
           navMenuOpen && !activeNavGroup && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tab-nav-panel", children: NAV_GROUPS.map((g) => {
             const isActiveSystem = g.system && system === g.system;
+            const badgeCount = navBadgeCounts[g.key] || 0;
             return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "button",
               {
@@ -44015,7 +44428,10 @@ function GradeSelector() {
                 "data-nav-group": g.key,
                 onClick: () => openNavGroup(g),
                 children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "tab-nav-group-icon", children: g.icon }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "tab-nav-group-icon-wrap", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "tab-nav-group-icon", children: g.icon }),
+                    badgeCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "tab-nav-group-badge", children: badgeCount })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "tab-nav-group-label", children: g.label })
                 ]
               },
@@ -44092,6 +44508,8 @@ function GradeSelector() {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "home-dash-title", children: "Dashboards" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "home-dash-grid", children: NAV_GROUPS.map((g) => {
           const isActiveSystem = g.system && system === g.system;
+          const badgeCount = navBadgeCounts[g.key] || 0;
+          const badgeMeta = NAV_BADGE_META[g.key];
           return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
             "button",
             {
@@ -44109,7 +44527,12 @@ function GradeSelector() {
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-icon", children: g.icon }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-label", children: g.label }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-blurb", children: g.blurb })
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-blurb", children: g.blurb }),
+                badgeCount > 0 && badgeMeta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "home-dash-card-badge-row", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-badge-icon", children: badgeMeta.icon }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: `home-dash-card-badge-num sev-${badgeMeta.sev}`, children: badgeCount }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "home-dash-card-badge-label", children: badgeMeta.label })
+                ] })
               ]
             },
             g.key
@@ -44117,8 +44540,6 @@ function GradeSelector() {
         }) })
       ] }),
       activeTab === "dashboard" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DashboardSummaryCard, { setActiveTab, batchLogEntries, materialPrices, priceCurrency, myProductLibrary, materialInventory, lastBackupDate }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CompanySettingsCard, {}),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NextTabButton, { activeTab, setActiveTab })
       ] }),
       activeTab === "customer" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid", children: [
@@ -44128,7 +44549,7 @@ function GradeSelector() {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NextTabButton, { activeTab, setActiveTab })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CityWaterReferenceCard, { cityWaterLibrary, setCityWaterLibrary, system, setCa, setAlk, setTds, setPh, setTempC, setBoilerFeedHardness, setBoilerFeedAlkalinity, setBoilerFeedSilica, setBoilerFeedTds, setRoFeedTds, setRoFeedHardness, setRoFeedSilica }),
+        activeTab === "analysis" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CityWaterReferenceCard, { cityWaterLibrary, setCityWaterLibrary, system, setCa, setAlk, setTds, setPh, setTempC, setBoilerFeedHardness, setBoilerFeedAlkalinity, setBoilerFeedSilica, setBoilerFeedTds, setRoFeedTds, setRoFeedHardness, setRoFeedSilica }),
         (system === "tower" || system === "chiller") && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "analysis" ? "active" : ""}`, children: [
             system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SystemModeCard, { system, towerMode, setTowerMode }),
@@ -44403,6 +44824,8 @@ function GradeSelector() {
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "settings" ? "active" : ""}`, children: [
             /* ===================== SETTINGS & DATA ===================== */
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(OperatingGuideCard, {}),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CompanySettingsCard, {}),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DataPersistenceCard, {}),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BackupRestoreCard, { setLastBackupDate, lastBackupDate }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CloudSyncCard, {}),
@@ -44411,14 +44834,14 @@ function GradeSelector() {
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "var(--text-faint)" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                   "Version & Data Log",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.154 — tap to see full history" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.159 — tap to see full history" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12 }, children: "Every reference range in this tool is sourced from a real, citable document — a patent, a commercial technical bulletin, a peer-reviewed paper, or a documented field case study. This log shows the last several updates in plain language so it's quick to skim; the full technical history (every version since the tool started) is kept safe separately if it's ever needed." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 20, padding: 16, background: "var(--bg-inset-alt)", border: "1px solid #1B3A4D", borderRadius: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.154" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a Dashboard home screen that surfaces what needs attention across the whole tool, get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 274 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 65 calculator/reference cards across 13 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.159" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a clean Dashboard home screen (6 system cards, each flagging only what genuinely needs attention for that system), get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 274 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 65 calculator/reference cards across 13 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "Every field auto-saves locally in this browser (no account or internet needed), every reference figure is sourced and citable, and every calculation has been verified against a hand-calculated expected value using real-browser testing — not assumed correct because the code looks right." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { color: "var(--text-muted)" }, children: "What this tool does NOT replace:" }),
@@ -44426,7 +44849,7 @@ function GradeSelector() {
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "version-log-current", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.154" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.159" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-10-01" })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "asc-formula-table", style: { marginTop: 12 }, children: [
@@ -44436,6 +44859,31 @@ function GradeSelector() {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "What changed" })
                 ] }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.159" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 2" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal asked for a way to close the whole tool, with a save-or-don't-save choice — \"عاوز اضيف زر اغلاق للبرنامج ك كل مع option save or don't save\". Confirmed two specifics via AskUserQuestion first: where the button should sit, and what \"save\" should actually do, since a web page has no real equivalent of a desktop app's File → Close. Gamal's answers: not an ✕ icon — a round power symbol, placed right next to the bell; and \"save\" should mean exactly what the existing Export Backup button already does. Added a new ⏻ power button in the header icon row, between the bell and the gear. Tapping it opens a small centered dialog — \"Close Power Chemicals Tool?\" — with three choices: \"\u{1F4BE} Save & Close\" (exports a timestamped backup JSON file, same as Settings → Backup & Restore, then attempts to close the tab), \"Close Without Saving\" (attempts to close the tab directly, no export), and \"Cancel\". Extracted the backup-export logic out of `BackupRestoreCard` into a new shared `exportBackupData()` function so the existing Export Backup button and the new dialog call the exact same code — one real implementation, not a duplicate. Because browsers only allow a page to close its own tab via script when that tab was itself opened by a script (true for virtually every real use of this tool, opened by double-clicking the file or via a normal browser tab), `window.close()` is attempted but may be silently blocked; when that happens a plain-language message explains why and reassures that the data is already saved locally, rather than leaving Gamal wondering if the button is broken. Verified via a full rebuild, syntax check, build-reproducibility check, and new targeted Playwright checks confirming: the power button sits directly between the bell and the gear; the dialog opens with the exact three expected buttons; Cancel and a click on the dark backdrop both close it with no side effects; \"Save & Close\" triggers a real file download with the correct filename, updates the recorded backup date, and shows the fallback message when the browser blocks the close; and the existing Export Backup button in Settings still produces an identical download through the same shared function. Re-ran the entire existing regression suite (two scripts needed a one-line locator fix after the new button shifted icon positions, not because anything broke) — all clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.159 down to v9.150) after dropping the oldest (v9.149)." })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.158" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 2" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Right after v9.157 shipped, Gamal came back sharper: \"بص انت مش فاهم خالص انا عاوز ايه لحد الان شغلك كله غلط\" (Look, you don't understand at all what I want. Until now your work is all wrong), with three new annotated screenshots marking up exactly what was still wrong, plus four numbered points in Arabic. Rather than guess again after already having gotten this round wrong once, asked two rounds of AskUserQuestion (6 questions total) to pin down every point precisely before writing any code, per his own instruction: \"ياريت لو مش فاهم متعملش حاجه\" (please, if you don't understand, don't do anything). Confirmed and built exactly what he asked for: (1) the \"You haven't backed up\" banner — redundant with the same reminder already in the 🔔 bell — removed entirely, kept only in the bell; (2) the ⚙️ gear now opens a dropdown menu (matching the bell's own pattern) listing every Settings section — Company Profile & Branding, Data & Auto-Save, Backup & Restore All Data, Cloud Backup & Login, Version & Data Log — plus a new \"Operating Guide\" entry; (3) wrote that Operating Guide from scratch as a new card (`OperatingGuideCard`, placed first in Settings) explaining in plain language how to use the Dashboard, the alerts bell, the settings gear, Search/Quick Jump, and the new Back/Home controls — deliberately separate from the existing Troubleshooting Guide, which is for diagnosing system problems, not for learning the app's own screens; (4) added a compact \"← Back / 🏠 Home\" bar at the top of every tab except the Dashboard itself — Back retraces real navigation history one step at a time (tracked via a small history stack that ignores its own back-navigation, so it never ping-pongs), Home always jumps straight to the Dashboard. Separately, since Settings now lives entirely behind the gear, removed the \"Settings\" tile from the 6-card Dashboard grid per Gamal's explicit answer and put \"Troubleshooting Guide\" in its place instead — his own suggestion, since it's genuinely standalone content with nothing deeper to drill into, same as Cleaners. Search and Quick Jump were explicitly left untouched, exactly as they already were (collapsed icons, visible on every tab including the Dashboard) — Gamal's answer was clear that round's design there was already right. Card count adjusted 64 → 65 (the new Operating Guide card). Verified via a full rebuild, syntax check, build-reproducibility check, and new targeted Playwright checks confirming: the backup banner is gone from the DOM entirely; the Dashboard's 6 cards now read Cooling Tower/Chillers/Boilers/RO/Cleaners/Troubleshooting Guide; the gear opens a 6-item dropdown and each item jumps to and opens the right section; a full Dashboard → system tab → gear → Settings → Back → Back navigation chain lands back on the Dashboard in the right order; Home jumps straight to the Dashboard from any tab; and Search/Quick Jump still behave exactly as in v9.157. Updated one existing regression script whose settings-icon check assumed the old direct-jump behaviour; every other existing check needed no changes. Re-ran the entire existing regression suite — all clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.158 down to v9.149) after dropping the oldest (v9.148)." })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.157" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 1" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Right after v9.156 shipped, Gamal sent three images again — a crop of the SAP portal screenshot's top-left icon row (a person icon, a \"3\", and a bell 🔔), a crop of its 6-card grid, and a screenshot of the actual app showing a full-width Search bar and a full-width \"Quick Jump\" dropdown sitting above the Dashboard grid — and said plainly: \"انت معملتش الى انا عاوزة\" (you didn't do what I wanted). He spelled out exactly what was still missing: notifications as a bell icon top-left, a Settings icon next to the bell, nothing else cluttering the view beyond the Dashboard, and the Search bar and Quick Jump bar shrunk down to small icon buttons that only expand to their full size when tapped. Confirmed scope via AskUserQuestion before touching any code: (1) tapping the bell shows the same alerts the old \"Dashboard Overview\" card used to surface (overdue/due-today schedule tasks, raw materials at or below reorder point, price-drift flags on materials used in recent batches, client water-reading trend flags, and the backup-overdue reminder) in a small dropdown, with the badge number equal to the total alert count; (2) tapping the Settings icon jumps straight to the Settings & Data tab; (3) both the Search bar and the Quick Jump bar collapse down to a small round icon button that expands to the full control on tap. Added a compact icon row at the very top-left of the header — a 🔔 bell (red badge showing the live alert count, hidden when there are none) and a ⚙️ gear — replacing the old always-visible full-width bars. The bell's dropdown content is powered by a new `headerAlerts` calculation that reuses the exact alert logic the old Dashboard Overview card used to run (same schedule/inventory/price-drift/trend/backup checks, same underlying data, nothing invented), each alert clickable to jump straight to the relevant card, same as before. The Search bar and Quick Jump bar are now collapsed by default behind two small icon buttons beneath the header; tapping either expands that one control in place (auto-focusing the Search input), and tapping anywhere outside collapses it again, matching the same click-outside behaviour already used for the Dashboard/nav menu — their own internal search and jump logic was left completely untouched, only how they're shown changed. Verified via a full rebuild, syntax check, build-reproducibility check, and new targeted Playwright checks confirming the bell badge count matches real seeded alert data, each alert dropdown row navigates to the right tab/card, the Settings icon jumps straight to Settings & Data, and Search/Quick Jump start collapsed, expand correctly on click (with the Search input auto-focused), and collapse again on an outside click. Updated two existing regression scripts that assumed the Search bar was always expanded, so they now open it first before using it — every other existing check needed no changes and still passes. Re-ran the entire existing regression suite — all clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.157 down to v9.148) after dropping the oldest (v9.147)." })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.156" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 1" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Right after seeing v9.155's new clean Dashboard grid, Gamal pointed at a screenshot of what was still showing underneath it on the Dashboard tab — the \"Dashboard Overview\" stats/alerts card, the \"Company Profile & Branding\" card, and the \"City Water Reference Library\" card (the last one visible on every single tab, not just Dashboard) — and said: \"دول كمان مش عاوزهم يبقى هنا ممكن نعمل فيهم اية\" (I don't want these here either, what can we do about them). Confirmed scope via AskUserQuestion for each card individually rather than assuming: (1) Dashboard Overview — remove entirely from the Dashboard tab, since its stats and alerts (schedule due/overdue, materials needing reorder, backup reminder) either duplicate the new per-card badges or already surface elsewhere (the Back Up Now banner, each tab's own cards); (2) Company Profile & Branding — remove from the Dashboard tab; (3) City Water Reference Library — stop showing it on every tab and keep it only on Water Analysis & System. While confirming (2), found that the premise behind the question was wrong and said so rather than silently acting on it: Company Profile & Branding was NOT already duplicated on the Settings tab as assumed — `grep` showed it rendered in exactly one place in the whole file, the Dashboard tab, meaning removing it outright would have deleted Gamal's only way to edit the company name/logo used on every generated document. Moved it into the Settings & Data tab (as the first card there) instead of deleting it, so it keeps working exactly as before, just relocated to where it logically belongs and where Gamal had assumed it already was. Removed the `DashboardSummaryCard` render from the Dashboard tab entirely (confirmed via `grep` it has no other usage, so this doesn't silently break anything elsewhere) and reused the freed-up `NextTabButton` row. Gated `CityWaterReferenceCard` behind `activeTab === \"analysis\"` (it previously rendered unconditionally on every tab via a wrapper `<div>` with no tab check at all) so it now shows only on Water Analysis & System, matching the sibling cards in that same wrapper that were already tab-gated. Card count adjusted 65 → 64 (Dashboard Overview no longer rendered anywhere; Company Profile & Branding still counts, just relocated). Verified via a full rebuild, syntax check, build-reproducibility check, and new targeted Playwright/DOM checks confirming `#sec-dashboard-summary` is gone from the DOM, `#sec-company-settings` renders inside the Settings tab-section (and is CSS-hidden, not unmounted, on every other tab — consistent with how this tool already handles all per-tab sections), and City Water Reference Library appears only when `activeTab === \"analysis\"` and nowhere else. Re-ran the entire existing regression suite — all clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.156 down to v9.147) after dropping the oldest (v9.146)." })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.155" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 1" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal sent a photo of the Egyptian Tax Authority's SAP portal home screen — a 6-card icon-tile grid with a light cream background and badge counts on 3 of the cards — and asked: \"عاوز شكل البرنامج يبقى كدة\" (I want the program's look to become like this). Confirmed scope via AskUserQuestion: redesign the whole app (not just the Dashboard grid), switch to a light cream/beige colour scheme like the screenshot, and add real badge counts pulled from this tool's own data rather than placeholder numbers. The app already had an existing light/dark theme toggle (`data-theme` CSS variables) whose light palette had never been used as the default — re-themed it to a warm cream background (#F7F1E4) with white cards and soft warm borders, replacing the previous neutral off-white light palette, and switched the app's default theme from dark to light so this cream look is what Gamal sees on open (the dark theme is still one tap away via the existing Light/Dark toggle). Redesigned the 6 Dashboard cards — and the matching compact nav-menu versions — to add a badge row, shown only when there's something to flag, wired to data this tool already computes elsewhere: Cooling Tower/Chillers/Boilers/RO show a red ⚠ count of that system's overdue-or-due-today Treatment Schedule tasks (from the existing Schedule Tracker, filtered by its own per-task System field); Cleaners shows a 📦 count of raw materials at or below their reorder point (the same inventory figures the Dashboard Overview card already surfaces); Settings shows a 💾 flag when a backup is overdue (the same condition already driving the existing backup-reminder banner). No new or fabricated numbers — every badge reuses a computation this tool already makes elsewhere. Verified via a full rebuild, syntax check, build-reproducibility check, and new targeted Playwright checks that seed sample schedule/inventory/backup data and confirm each badge shows the exact right count on the right card, and stays hidden on a system with nothing to flag — checked by querying the live DOM directly (element count, text, bounding boxes, innerHTML), not just screenshots, after an initial headless-browser screenshot capture falsely appeared to show badges \"leaking\" onto unrelated cards; traced and confirmed to be a rendering quirk of that test browser, not a real bug, since isolated per-card captures and every DOM query were consistently correct throughout. Re-ran the entire existing regression suite — all clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.155 down to v9.146) after dropping the oldest (v9.145)." })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.154" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 1" }),
@@ -44460,31 +44908,6 @@ function GradeSelector() {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.150" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Right after v9.149 shipped, Gamal asked once more: \"انت قول لو فى حاجه تانى\" (you tell me if there's anything else). Re-ran the same evidence-based audit — measured every tab's actual height and inspected which cards were open by default — rather than offering an opinion. One tab had genuinely been missed by the v9.146/v9.147 reorganization: RO/DI & Resin still showed all 4 of its tools expanded at once (Ion Exchange Regeneration Calculator, DI Polisher Capacity Estimator, RO Recovery & Salt Rejection Calculator, and RO Membrane Fouling & Damage Reference), the exact \"several tools, no primary/secondary split\" pattern already fixed everywhere else. Confirmed the fix with Gamal via AskUserQuestion: unlike the other tabs, this one doesn't have a single obvious \"main\" tool — the 3 calculators are all routinely-used input forms, while \"RO Membrane Fouling & Damage Reference\" is a long diagnostic lookup table (1,109px) you check occasionally rather than fill in every time. Gamal chose the targeted fix: leave the 3 calculators open exactly as before, and just close the long reference table by default (same one-line `asc-workflow-card` + `data-collapsed=\"true\"` pattern used throughout this tool) — one click still opens it. RO/DI & Resin dropped from 3,571px to about 2,530px, and nothing else on the tab changed. Verified via a full rebuild, syntax check, and a direct Playwright check that the reference card now starts closed while all 3 calculators stay open and unaffected. Re-ran the entire existing regression suite (`regression.js`, `verify_cleaners_group.js`, `verify_whole_app_groups.js`, `verify_single_source.js`, `verify_material_categories.js`, `verify_toggle_fix.js`) — all pass clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.150 down to v9.141) after dropping the oldest (v9.140)." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.149" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Right after v9.148 shipped, Gamal asked directly: \"انت شايف الترتيب وتحسين المظهر محتاج حاجة؟\" (do you see anything the ordering/visual work still needs). Did another evidence-based pass rather than guessing, and found two more real issues — confirmed both with Gamal via AskUserQuestion before touching anything. (1) On the Settings tab, the \"Version & Data Log\" card alone measured 5,432px tall — over 75% of that tab's entire height — and had no collapse option at all, always fully expanded. It's now collapsible like every other card (closed by default, header still shows the current version number so nothing important is hidden), dropping the whole Settings tab from 7,096px to about 1,800px. (2) A real functional bug, not just cosmetic: found that about 25 cards across the app (Batch Cost, Batch Log, Materials Library, Data & Auto-Save, Product Library, and others) had a collapse-toggle button that either did nothing at all, or — worse — when the card was sitting inside one of the \"More Tools\" sections added in v9.146/v9.147, clicking that card's own toggle collapsed the ENTIRE surrounding group instead of just that one card. Root cause: each of these cards was missing the CSS class its own toggle button needs to find itself rather than its parent. Fixed all ~28 affected cards the same way: added the missing class so each toggle now only ever affects its own card, with no change to what's shown by default (everything that was visible before still is — the buttons just work correctly now, instead of doing nothing or doing the wrong thing). Verified via a full rebuild, syntax check, and a new dedicated Playwright script (`verify_toggle_fix.js`) covering: a nested card's toggle no longer closes its parent group, a standalone card's toggle now actually collapses just itself, the Version & Data Log collapses/expands correctly with its header summary intact, and the existing search-bar deep-link into a nested card (Batch Cost) still correctly opens both the card and its group. Re-ran the full existing regression suite plus every prior verification script — all pass clean, zero real console/page errors. Version log confirmed at exactly 10 rows (v9.149 down to v9.140) after dropping the oldest (v9.139)." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.148" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal asked what else was needed next; when offered a few backend ideas (permissions, offline support, more coverage) he redirected instead: \"لا فى الترتيب والتسليل وتحسين المظهر البصرى\" (no — keep going on ordering and improving the visual appearance). Did a fresh visual audit — full-page screenshots and actual measured page heights across all 13 tabs — and found the Production tab was rendering at 29,259px tall and Pricing at 7,317px, both because Material Inventory and Material Prices listed every single raw material (70+) as one long flat list with no grouping at all. Confirmed 3 fixes with Gamal via AskUserQuestion (he picked all 3, marking the grouping one \"the most important\"): (1) Material Inventory and Material Prices now group every material under its real category from the Raw Materials & Formulation Library (Scale Inhibitors, Corrosion Inhibitors, Biocides, etc.), each category collapsed by default and opening with one tap — Production dropped from 29,259px to about 2,500px, Pricing from 7,317px to about 2,600px, and typing in the filter box still auto-opens only the matching categories; (2) the floating \"🏠 Dashboard\" button no longer shows while already on the Dashboard tab, since its 6 tiles were just duplicating what's already on screen full-size; (3) \"Company Profile & Branding\" — previously a large form always sitting open at the very top of the Dashboard, and whose collapse button didn't actually work — is now properly collapsible (closed by default, showing just the saved company name), and its toggle button now genuinely works." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.147" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal, right after v9.146: \"عاوز كده مع كل البرنامج\" (I want this [same treatment] for the whole program). Reviewed the rest of the tool first: Water Analysis, Products & Dosing, and Biocide already filter to show only the active system's own cards (no mixing), so those didn't need this. Three tabs genuinely did have several tools shown together with no primary/secondary distinction — Operations & Reference Tools (7 tools), Production & Inventory (7 tools), and Formula & Product Library (5 tools). Confirmed via AskUserQuestion: in each of these, keep the one tool that matches the tab's own name up front, and close everything else under one \"More\" section, same pattern as Cleaning (v9.146). Operations & Reference Tools now opens straight on the Troubleshooting Guide, with Materials Library, Manufacturing Formula Library, Research Validation Checklist, Logsheet, Schedule Tracker, and Legionella Risk Assessment tucked under \"More Reference & Tracking Tools\". Production & Inventory opens on Material Inventory, with Tower Sizing, Purchase Orders, Batch Log, Batch Cost, Batch Scale-Up, and Manufacturing Troubleshooting under \"More Production Tools\". Formula & Product Library opens on Product Library, with Product Documents, Raw Material Substitution, Custom Formula Builder, and Products Under Study under \"More Library Tools\". Added a new shared `MoreToolsGroup` component (reused across all three, rather than three separate copies) using the same collapse mechanism as Cleaning's group. While implementing this, caught and fixed a real latent bug from v9.146: several existing deep-links (the global search bar, the Dashboard's alert links, \"View full library →\" buttons throughout the dosing cards, and the Troubleshooting Guide's own corrective-action links) jump straight to a card by id and force it open — but a card now sitting inside a closed \"More\" group stayed hidden even after being individually un-collapsed, because its closed parent group was still hiding it. Added a small shared `uncollapseAncestors()` helper and wired it into every one of these jump sites (8 in total, including Cleaning's own from v9.146) so opening a card now also opens whichever \"More\" group it's sitting inside, however you got there." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.146" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal opened the Cleaners dashboard (screenshot) and found the full Cleaning Solutions tab — all 12 builder cards plus the Chemical/Metal Compatibility and PPE reference tables — rather than just what relates to Cleaners: \"انا محتاج الى لية علاقة فقط ب ال Cleaners... والى مش محتاجه يكون تبويب مغلق لو حابب افتحة ادوس علية افتحه\" (I need only what's related to Cleaners... and what's not needed should be a closed tab I can open if I want). Confirmed via AskUserQuestion: keep the 4 Cleaners-dashboard products (Cooling Tower, Chiller Loop, Heat Exchanger, Mold/Die Rust & Scale Removers) front and center, and tuck everything else into one closed section. Reordered the Cleaning Solutions tab so those 4 dedicated builders always come first, and moved the other 8 builders that live in the same tab but aren't part of the Cleaners set (Cooling Tower Shock Disinfection, Boiler Chemical Cleaning, Boiler Passivation, Heat Exchanger Alkaline/Biofilm Cleaning, Mold/Die Passivation, Rust Preventive Coating, Aluminium Deoxidizing, Aluminium-Safe Caustic Clean) plus the Chemical/Metal Compatibility and PPE reference tables into a single new \"More Cleaning Tools & Reference\" card, closed by default — one click opens it, reusing the exact same collapse/expand mechanism every other builder card already uses, so nothing new was invented and nothing was removed or hidden away permanently." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.145" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Sep 30" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal asked directly for an honest opinion on the navigation: \"إية رأيك فى التنظيم والترتيب ده مش شايفة احترافى صح؟؟؟\" (What's your take on this organization — you don't find it professional, right?). Flagged one concrete remaining issue: the page had 3 separate places that all set the same System (the Dashboards, a \"Quick Start\" system dropdown, and a separate \"System\" card further down) — exactly the kind of redundancy that reads as unorganized, and the root cause of the v9.144 bug in the first place. Gamal confirmed: make the Dashboards the single source. Removed the \"Quick Start\" system dropdown and the standalone \"System\" card entirely — the 6 Dashboards (v9.142/v9.143) are now the only way to change system. What's left of that top control is a single, clearly-labeled \"Quick Jump — <current system>\" product picker that only jumps to a specific product within whichever system is already active, reusing the exact same expand-and-scroll behaviour as the Cleaners deep-links (v9.141) and the \"Back Up Now\" banner. The header's MODEL badge still shows the active system at a glance, so no information was lost — just the duplicate ways to set it." })
                   ] }),
                 ] })
               ] }),
