@@ -45521,6 +45521,69 @@ function GradeSelector() {
         setNavMenuOpen(true);
       }
     };
+    const [dashFocusIdx, setDashFocusIdx] = (0, import_react.useState)(0);
+    (0, import_react.useEffect)(() => {
+      if (activeTab === "dashboard") setDashFocusIdx(0);
+    }, [activeTab]);
+    (0, import_react.useEffect)(() => {
+      const isTypingTarget = (el) => {
+        if (!el) return false;
+        const tag = (el.tagName || "").toUpperCase();
+        return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+      };
+      const onKeyDown = (e) => {
+        if (e.key === "Escape") {
+          const anyOpen = closeDialogOpen || navMenuOpen || notifOpen || gearOpen || searchExpanded || quickJumpExpanded;
+          if (!anyOpen) return;
+          e.preventDefault();
+          setCloseDialogOpen(false);
+          setNavMenuOpen(false);
+          setNavExpandedGroup(null);
+          setNotifOpen(false);
+          setGearOpen(false);
+          setSearchExpanded(false);
+          setQuickJumpExpanded(false);
+          return;
+        }
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "Enter") return;
+        if (isTypingTarget(e.target)) return;
+        const anyOverlayOpen = closeDialogOpen || navMenuOpen || notifOpen || gearOpen || searchExpanded || quickJumpExpanded;
+        if (anyOverlayOpen) return;
+        if (activeTab === "dashboard") {
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            setDashFocusIdx((i) => (i + 1) % NAV_GROUPS.length);
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            setDashFocusIdx((i) => (i - 1 + NAV_GROUPS.length) % NAV_GROUPS.length);
+          } else if (e.key === "Enter") {
+            const g = NAV_GROUPS[dashFocusIdx];
+            if (g) {
+              e.preventDefault();
+              openNavGroup(g);
+              if (g.items) {
+                setTimeout(() => {
+                  if (navMenuRef.current) navMenuRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 60);
+              }
+            }
+          }
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          const idx = TAB_ORDER.findIndex((t) => t.key === activeTab);
+          if (idx !== -1 && idx < TAB_ORDER.length - 1) {
+            setActiveTab(TAB_ORDER[idx + 1].key);
+            scrollToTop();
+          }
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          goBackTab();
+          scrollToTop();
+        }
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [activeTab, dashFocusIdx, navMenuOpen, notifOpen, gearOpen, searchExpanded, quickJumpExpanded, closeDialogOpen]);
     const navBadgeCounts = (0, import_react.useMemo)(() => {
       const bySystem = { tower: 0, chiller: 0, boiler: 0, ro: 0 };
       let tasks = [];
@@ -46354,6 +46417,7 @@ function GradeSelector() {
         }
         .home-dash-card:hover { border-color: #E08A2E; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(40,30,10,0.10); }
         .home-dash-card.active { border-color: #E08A2E; background: rgba(224,138,46,0.06); }
+        .home-dash-card.kbd-focus { box-shadow: 0 0 0 3px rgba(0,217,163,0.55); }
         .home-dash-card-icon { font-size: 32px; line-height: 1; }
         .home-dash-card-label { font-size: 15px; font-weight: 700; color: var(--text-primary); }
         .home-dash-card-blurb { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; }
@@ -46998,7 +47062,7 @@ function GradeSelector() {
       ] }),
       activeTab === "dashboard" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "home-dash-section", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "home-dash-title", children: "Dashboards" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "home-dash-grid", children: NAV_GROUPS.map((g) => {
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "home-dash-grid", children: NAV_GROUPS.map((g, dashIdx) => {
           const isActiveSystem = g.system && system === g.system;
           const badgeCount = navBadgeCounts[g.key] || 0;
           const badgeMeta = NAV_BADGE_META[g.key];
@@ -47006,9 +47070,10 @@ function GradeSelector() {
             "button",
             {
               type: "button",
-              className: `home-dash-card ${isActiveSystem ? "active" : ""}`,
+              className: `home-dash-card ${isActiveSystem ? "active" : ""} ${dashIdx === dashFocusIdx ? "kbd-focus" : ""}`,
               "data-home-dash": g.key,
               onClick: () => {
+                setDashFocusIdx(dashIdx);
                 openNavGroup(g);
                 if (g.items) {
                   setTimeout(() => {
@@ -47331,13 +47396,13 @@ function GradeSelector() {
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "var(--text-faint)" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                   "Version & Data Log",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.177 — tap to see full history" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.178 — tap to see full history" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12 }, children: "Every reference range in this tool is sourced from a real, citable document — a patent, a commercial technical bulletin, a peer-reviewed paper, or a documented field case study. This log shows the last several updates in plain language so it's quick to skim; the full technical history (every version since the tool started) is kept safe separately if it's ever needed." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 20, padding: 16, background: "var(--bg-inset-alt)", border: "1px solid #1B3A4D", borderRadius: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.177" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.178" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a clean Dashboard home screen (6 system cards, each flagging only what genuinely needs attention for that system), get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 274 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 65 calculator/reference cards across 13 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "Every field auto-saves locally in this browser (no account or internet needed), every reference figure is sourced and citable, and every calculation has been verified against a hand-calculated expected value using real-browser testing — not assumed correct because the code looks right." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }, children: [
@@ -47346,7 +47411,7 @@ function GradeSelector() {
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "version-log-current", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.177" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.178" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-10-05" })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "asc-formula-table", style: { marginTop: 12 }, children: [
@@ -47356,6 +47421,11 @@ function GradeSelector() {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "What changed" })
                 ] }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.178" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 6" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "While I was mid-way through pushing v9.177 to GitHub (the connection to Gamal's computer dropped partway), Gamal sent a photo of his laptop's arrow-key/Home-cluster area and said \"عايز دول يتحكموا فى الحركة و ال tab و ال esc\" (I want these to control movement, and the Tab and Esc keys). Clarified via two AskUserQuestion rounds since this was genuinely ambiguous (a Windows keyboard setting vs. something inside the app) — confirmed he meant keyboard navigation inside grade_selector itself, specifically: (1) Left/Right arrows should move to the previous/next tab like the existing Back/Next buttons, with Up/Down left alone to keep doing normal page scrolling; (2) on the Dashboard specifically, all four arrows should move a focus highlight between the 6 dashboard tiles instead, with Enter opening whichever tile is focused — both behaviors together, not one or the other; (3) Esc should only close whatever popup/panel is currently open (the nav-group panel, notifications, Settings-gear dropdown, Global Search, Quick Jump, or the Close-App confirmation), and do nothing at all if nothing is open. Implemented as a single global `keydown` listener added alongside the existing nav/notif/search/gear effects: Escape closes all six of those panel/dropdown states if any is open, and is a no-op otherwise; outside the Dashboard, ArrowRight advances `activeTab` to the next entry in the existing `TAB_ORDER` list (the same list `NextTabButton` already uses) and ArrowLeft calls the existing `goBackTab()` function (true visit history, not just TAB_ORDER−1, so it matches the 🏠-breadcrumb Back button exactly); on the Dashboard, all four arrows instead cycle a new `dashFocusIdx` state through the 6 `NAV_GROUPS` tiles (shown with a new `.kbd-focus` highlight ring) and Enter activates the focused tile through the exact same `openNavGroup` call its own onClick already uses. Every arrow/Enter key is ignored whenever the event target is a text input, textarea, select, or contenteditable element (so typing a number or moving a text cursor with the arrow keys is completely unaffected) and whenever any of the six panels is currently open, so keyboard tab-navigation never fights with an open dropdown. Verified via a full rebuild, syntax check, build-reproducibility check, and a new targeted Playwright script (`verify_keyboard_nav.js`): Dashboard arrow keys correctly cycled the focus ring through Tower → Chiller → Boiler → Chiller (Right, Down, Left) with no wraparound bugs; Enter on the focused Chiller tile correctly opened it (dashboard tiles replaced by the Water Analysis tab); ArrowRight from there correctly walked forward through the real tab sequence (Products & Dosing → Biocide → Cleaning → Certificate → Production → Pricing); typing \"12345\" into a text field and pressing ArrowLeft/ArrowRight left the field's value and the active tab completely untouched; Escape with nothing open did nothing; Escape correctly closed both the Settings-gear dropdown and the Close-App confirmation overlay when each was open. Re-ran the entire existing regression suite (updated for v9.177's dashboard-always-on-reload change, a test-authoring update, not an app bug) and the new v9.177 dashboard-default suite — all clean, zero real console/page errors beyond the known benign sandbox-proxy `ERR_TUNNEL_CONNECTION_FAILED` noise. Version log confirmed at exactly 10 rows (v9.178 down to v9.169) after dropping the oldest (v9.168)." })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.177" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 6" }),
@@ -47400,11 +47470,6 @@ function GradeSelector() {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.169" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 5" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal sent two more infographics (\"ممكن نستفاد بحاجه هنا\" — we could make use of something here): a \"Chilled Water Flow Calculation\" card (Q = ṁ \xD7 Cp \xD7 ΔT, converting a cooling load in kW to a flow rate in LPM) and a \"Cooling Tower Efficiency\" card (η = (T1−T2)\xF7(T1−Twb) \xD7 100, comparing a tower's actual performance to the wet-bulb limit). Confirmed via AskUserQuestion that both were wanted, and that both should appear in two places each: a standalone calculator card (matching the pattern already established for Tower/Boiler/Chiller) and auto-computed in the printed customer proposal. Researched the existing Engineering Data fields first: ΔT was already a generic, unconditionally-shown field used by Tower's make-up water sump calculation with the same physical meaning needed here (chilled water ΔT for Chiller; Range = T1−T2 for Tower), so both new calculations reuse the existing ΔT field rather than adding a duplicate. Implemented: a new `calcChillerChilledWaterFlow` function (ṁ = Q \xF7 (Cp \xD7 ΔT), Cp = 4.186 kJ/kg\xB7K, converted to L/s, LPM and m\xB3/hr); a new \"\u{1F9CA} Chilled Water Flow Rate Calculator\" standalone card (Chiller-only, under More Production Tools) with a Cooling Load (kW) field alongside the existing ΔT field, a breakdown table, and a one-click \"Use as Recirculation Rate\" apply button; a new `calcCoolingTowerEfficiency` function (Range = T1−T2 from the existing ΔT field; Approach = T2−Twb; η = Range \xF7 (T1−Twb) \xD7 100), with a guard against an undefined result when T1 ≤ Twb and a separate warning when the computed T2 would fall below the wet-bulb temperature (physically impossible for a real tower); a new \"\u{1F4CA} Cooling Tower Efficiency Calculator\" standalone card (Tower-only) taking Hot Water Inlet (T1) and Ambient Wet-Bulb (Twb) as new fields alongside the existing ΔT, showing Range, Approach and the efficiency percentage. Both new Engineering Data fields (Cooling Load for Chiller; T1 and Twb for Tower) added to Program Builder, reusing the same per-system Engineering Data record so standalone cards and Program Builder stay in sync with zero duplicate state, the same pattern already proven for every prior calculator this project has added. Extended `buildProgramHtml` with two new proposal sections, each gated to its own system, inserted alongside the existing Tower/Boiler/Chiller sections. Verified via a full rebuild, syntax check, build-reproducibility check, and a new targeted Playwright script: for Chiller, Q=350 kW and ΔT=5\xB0C correctly computed ṁ=16.72 kg/s, 1003 LPM and 60.20 m\xB3/hr, matching the source infographic's own example exactly, and the apply button correctly carried 60.20 into Recirculation Rate; for Tower, T1=40\xB0C/Twb=25\xB0C/ΔT=10\xB0C correctly computed Range=10.0\xB0C, Approach=5.0\xB0C and η=66.7%, also matching the source infographic's own example exactly; both printed proposals correctly included their new sections with matching figures, and each system's proposal correctly did NOT contain the other new section's wording. Re-ran the Chiller Fluid Composition, Boiler, Tower sump-diagram and v9.164 availability-mode suites plus the entire existing regression suite — all clean, zero real console/page errors beyond the known benign sandbox-proxy `ERR_TUNNEL_CONNECTION_FAILED` noise. Version log confirmed at exactly 10 rows (v9.169 down to v9.160) after dropping the oldest (v9.159)." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.168" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 5" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Gamal clarified his Chiller note from v9.167: \"الشيلارات معظمها شغالة بالماء مفيش كتير بيشغل ب الجلايكول فخلى موضوع سوائل التبريد اختيارى اما الاستندارد ماء\" (most chillers run on plain water, not many run on glycol, so make the coolant-fluid topic optional, with the standard being water). Confirmed via AskUserQuestion that he wanted this applied two places: (1) the existing Antifreeze Corrosion Inhibitor Blend Builder (EgBlendCard) reframed to read clearly as the optional, non-default product it already architecturally was (it was already a separate card from the standard Chiller Inhibitor, but the copy didn't say plainly that water is the default); and (2) a new Chiller-specific calculation in the printed customer proposal, mirroring the spirit of the Tower/Boiler make-up water features. Checked the physics before building anything: a chiller loop here is sealed/closed (confirmed again from EgBlendCard's own \"closed-loop\" language) — no evaporation, no drift, no blowdown to atmosphere — so neither the Tower's nor the Boiler's continuous make-up-water formula applies. Raised this with Gamal via AskUserQuestion and he confirmed the idea: a \"System Volume & Fluid Composition\" calculation instead — the chiller's total system volume (already an existing Engineering Data field), a Coolant Type choice (Water — standard / Water + Glycol), and, when glycol is chosen, an automatic split of that volume into the glycol concentrate portion and the plain-water portion, tied to the existing Antifreeze Blend Builder. Implemented: a new `calcChillerFluidComposition` function (system volume \xD7 glycol concentrate % = concentrate volume; the remainder is water); a new standalone \"❄️ Chiller System Volume & Fluid Composition\" card (Chiller-only, under More Production Tools) with a Coolant Type toggle defaulting to Water and, in Glycol mode, a Glycol Concentrate % field, a breakdown table and a highlighted total-volume box framed explicitly as a one-time initial charge, not a continuous make-up rate; matching Coolant Type toggle and Glycol Concentrate % field added to Chiller's Engineering Data in Program Builder, reusing the same per-system Engineering Data record so the standalone card and Program Builder stay in sync with no duplicate state, exactly the pattern already proven for Tower and Boiler. Extended `buildProgramHtml` with a new \"Chiller System Volume & Fluid Composition\" proposal section, Chiller only, explaining the closed-loop reasoning and showing the same water/glycol breakdown. Strengthened EgBlendCard's own copy to state plainly that most chillers run on plain water and glycol is only for systems that genuinely need sub-zero freeze protection, and added a one-click \"Use this blend for Chiller Fluid Composition\" button on its Target Freeze Protection step that writes its already-computed concentrate percentage straight into the new Chiller Engineering Data fields — a real link between the two cards, not just matching copy. Verified via a full rebuild, syntax check, build-reproducibility check, and a new targeted Playwright script: the Coolant Type toggle defaults to Water for a fresh Chiller system; the standalone card in Water mode shows the full system volume as plain water with no glycol row; switching to Glycol mode and entering a concentrate % (35% on a 12 m\xB3 system) correctly computed 4.20 m\xB3 concentrate / 7.80 m\xB3 water; the EgBlendCard apply button correctly computed 50.0% concentrate for a -27\xB0C Professional-tier Ethylene Glycol blend (40% pure glycol \xF7 80% concentrate purity = 50% finished-blend fraction) and wrote it straight into the Chiller card, which then correctly showed 6.00 m\xB3 concentrate / 6.00 m\xB3 water on the same 12 m\xB3 system; the printed proposal correctly included the new section with matching figures, correctly did NOT contain the Tower's \"Evaporation Loss\" or the Boiler's \"Steam to Process\" wording; and switching to Tower confirmed the new Chiller card is correctly absent there while the Tower sump card is untouched. Re-ran the Boiler, Tower sump-diagram and v9.164 availability-mode suites plus the entire existing regression suite — all clean, zero real console/page errors beyond the known benign sandbox-proxy `ERR_TUNNEL_CONNECTION_FAILED` noise. Version log confirmed at exactly 10 rows (v9.168 down to v9.159) after dropping the oldest (v9.158)." })
                   ] }),
                 ] })
               ] }),
