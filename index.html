@@ -26280,11 +26280,13 @@ var DOSE_GROUP_LABELS = {
     if (!eng) return "";
     const arr = Array.isArray(eng.metallurgy) ? eng.metallurgy.filter(Boolean) : [];
     const legacy = typeof eng.metallurgy === "string" ? eng.metallurgy.trim() : "";
-    const other = typeof eng.metallurgyOther === "string" ? eng.metallurgyOther.trim() : "";
+    const otherEntries = Array.isArray(eng.metallurgyOtherEntries) ? eng.metallurgyOtherEntries.filter((e) => e && e.label && e.label.trim()) : [];
+    const otherLegacy = typeof eng.metallurgyOther === "string" ? eng.metallurgyOther.trim() : "";
     const parts = [];
     if (arr.length > 0) parts.push(...arr);
     else if (legacy) parts.push(legacy);
-    if (other) parts.push(other);
+    if (otherEntries.length > 0) parts.push(...otherEntries.map((e) => e.label.trim()));
+    else if (otherLegacy) parts.push(otherLegacy);
     return parts.join(", ");
   }
   function buildProgramHtml(items, programType, systemLabel, customerName, engineeringData, system) {
@@ -26374,7 +26376,8 @@ var DOSE_GROUP_LABELS = {
       </table>
   ` : "";
     const metallurgyArr = Array.isArray(eng.metallurgy) ? eng.metallurgy.filter(Boolean) : typeof eng.metallurgy === "string" && eng.metallurgy.trim() ? [eng.metallurgy.trim()] : [];
-    const metallurgyRef = getMetallurgyAcidReference(metallurgyArr);
+    const metallurgyOtherEntries = Array.isArray(eng.metallurgyOtherEntries) ? eng.metallurgyOtherEntries : [];
+    const metallurgyRef = getMetallurgyAcidReference(metallurgyArr, metallurgyOtherEntries);
     const metallurgyRefRowsHtml = (rows) => rows.map((r) => `<tr><td style="font-weight:700;">${r.chemical}</td><td>${r.metallurgyLabels.join(", ")}</td></tr>`).join("");
     const metallurgyCompatSectionHtml = metallurgyRef.avoid.length > 0 || metallurgyRef.caution.length > 0 ? `
       <div class="pc-section-title" style="margin-top:14px;">Cleaning-Chemistry Compatibility (based on Metallurgy above)</div>
@@ -28214,27 +28217,46 @@ var ACID_MODE_TO_CHEMICAL_NAME = {
   nitric: "Nitric Acid (aluminium deoxidizing / stainless passivation)"
 };
 
-function _metallurgyMappable(metallurgySelected) {
+// Valid target categories a user can manually map a custom "Other" material onto — same keys
+// CHEMICAL_METAL_COMPATIBILITY.js rates. Shared with the Program Builder dropdown UI.
+var METALLURGY_OTHER_CATEGORY_LABELS = {
+  carbonSteel: "Behaves like Carbon / Mild Steel",
+  stainlessSteel: "Behaves like Stainless Steel",
+  copperBrass: "Behaves like Copper / Brass",
+  aluminium: "Behaves like Aluminium",
+  titanium: "Behaves like Titanium",
+  galvanizedSteel: "Behaves like Galvanized Steel"
+};
+
+function _metallurgyMappable(metallurgySelected, otherEntries) {
   const arr = Array.isArray(metallurgySelected) ? metallurgySelected : [];
-  return arr
+  const fromTicked = arr
     .map((label) => {
       const map = METALLURGY_TO_COMPATIBILITY_CATEGORY[label];
-      return map ? { label, category: map.category, approx: !!map.approx } : null;
+      return map ? { label, category: map.category, approx: !!map.approx, userAssigned: false } : null;
     })
     .filter(Boolean);
+  // "Other" entries only participate once the user has explicitly picked which known category
+  // their custom material is closest to — an entry left unmapped (category: "") stays
+  // documentation-only, same as before this feature existed.
+  const fromOther = (Array.isArray(otherEntries) ? otherEntries : [])
+    .filter((e) => e && e.category && METALLURGY_OTHER_CATEGORY_LABELS[e.category] && e.label && e.label.trim())
+    .map((e) => ({ label: e.label.trim(), category: e.category, approx: false, userAssigned: true }));
+  return [...fromTicked, ...fromOther];
 }
 
 // Live, per-acid-choice check — used on an individual cleaning card once an acid/chemistry is picked.
-// Returns only the non-"safe" hits (avoid/caution) for the metallurgy actually ticked for this system.
-function getMetallurgyAcidWarnings(metallurgySelected, chemicalName) {
+// Returns only the non-"safe" hits (avoid/caution) for the metallurgy actually ticked for this system
+// (plus any "Other" material the user mapped to a category).
+function getMetallurgyAcidWarnings(metallurgySelected, chemicalName, otherEntries) {
   const entry = getMetalCompatibilityForChemical(chemicalName);
   if (!entry) return [];
-  const mapped = _metallurgyMappable(metallurgySelected);
+  const mapped = _metallurgyMappable(metallurgySelected, otherEntries);
   const warnings = [];
   mapped.forEach((m) => {
     const rated = entry[m.category];
     if (rated && rated.rating !== "safe") {
-      warnings.push({ metallurgyLabel: m.label, rating: rated.rating, note: rated.note, approx: m.approx });
+      warnings.push({ metallurgyLabel: m.label, rating: rated.rating, note: rated.note, approx: m.approx, userAssigned: m.userAssigned });
     }
   });
   warnings.sort((a, b) => (a.rating === b.rating ? 0 : a.rating === "avoid" ? -1 : 1));
@@ -28244,8 +28266,8 @@ function getMetallurgyAcidWarnings(metallurgySelected, chemicalName) {
 // Reference view — used in Program Builder (and the printed proposal) once metallurgy is ticked,
 // independent of which specific cleaning card is open. Grouped by chemical so it reads as
 // "here's what to avoid/watch for across the acids this tool offers," worst metal governs per chemical.
-function getMetallurgyAcidReference(metallurgySelected) {
-  const mapped = _metallurgyMappable(metallurgySelected);
+function getMetallurgyAcidReference(metallurgySelected, otherEntries) {
+  const mapped = _metallurgyMappable(metallurgySelected, otherEntries);
   const avoid = [];
   const caution = [];
   if (mapped.length === 0) return { avoid, caution };
@@ -28253,7 +28275,7 @@ function getMetallurgyAcidReference(metallurgySelected) {
     const hits = mapped
       .map((m) => {
         const rated = entry[m.category];
-        return rated && rated.rating !== "safe" ? { label: m.label, rating: rated.rating, approx: m.approx } : null;
+        return rated && rated.rating !== "safe" ? { label: m.label, rating: rated.rating, approx: m.approx, userAssigned: m.userAssigned } : null;
       })
       .filter(Boolean);
     if (hits.length === 0) return;
@@ -28261,7 +28283,7 @@ function getMetallurgyAcidReference(metallurgySelected) {
     const bucket = worst === "avoid" ? avoid : caution;
     bucket.push({
       chemical: entry.chemical,
-      metallurgyLabels: hits.map((h) => h.label + (h.approx ? " (approx.)" : "")),
+      metallurgyLabels: hits.map((h) => h.label + (h.userAssigned ? " (your mapping)" : h.approx ? " (approx.)" : "")),
       rating: worst
     });
   });
@@ -29448,15 +29470,15 @@ function buildStandaloneCertificateHtml(data) {
 // cleaning card, groups known concerns by chemical so Gamal can see, at a glance, which acids to
 // avoid/watch for before he even opens a cleaning tab. Also feeds the printed proposal (buildProgramHtml.js),
 // which calls the same getMetallurgyAcidReference() so the live view and the PDF always agree.
-function MetallurgyAcidReferenceBlock({ metallurgySelected }) {
-    const ref = getMetallurgyAcidReference(metallurgySelected);
+function MetallurgyAcidReferenceBlock({ metallurgySelected, metallurgyOtherEntries }) {
+    const ref = getMetallurgyAcidReference(metallurgySelected, metallurgyOtherEntries);
     if (ref.avoid.length === 0 && ref.caution.length === 0) return null;
     const renderGroup = (rows, sev) => rows.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("strong", { children: [r.chemical, ": "] }),
       r.metallurgyLabels.join(", ")
     ] }, sev + i));
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 10 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Cleaning-chemistry compatibility (based on the metallurgy ticked above)" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Cleaning-chemistry compatibility (based on the metallurgy ticked above, plus any \"Other\" material you mapped to a category)" }),
       ref.avoid.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "metallurgy-warning sev-avoid", style: { marginTop: 6 }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontWeight: 700 }, children: "⚠ Avoid on this system:" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { children: renderGroup(ref.avoid, "a") })
@@ -29465,12 +29487,12 @@ function MetallurgyAcidReferenceBlock({ metallurgySelected }) {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontWeight: 700 }, children: "⚠ Use with documented care:" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { children: renderGroup(ref.caution, "c") })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, color: "var(--text-faint)", marginTop: 4 }, children: "Chemicals not listed here (or metals ticked as \"Other\") have no documented concern in this tool's sources for the metals selected — see the full Chemical/Metal Compatibility Reference under Cleaners → General/Reference for every rating." })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, color: "var(--text-faint)", marginTop: 4 }, children: "Chemicals not listed here have no documented concern in this tool's sources for the metals/materials selected. An \"Other\" material left without a category is documentation only and isn't included above — see the full Chemical/Metal Compatibility Reference under Cleaners → General/Reference for every rating." })
     ] });
   }
 
-function MetallurgyAcidWarning({ metallurgySelected, chemicalName }) {
-    const warnings = getMetallurgyAcidWarnings(metallurgySelected, chemicalName);
+function MetallurgyAcidWarning({ metallurgySelected, chemicalName, metallurgyOtherEntries }) {
+    const warnings = getMetallurgyAcidWarnings(metallurgySelected, chemicalName, metallurgyOtherEntries);
     if (!warnings || warnings.length === 0) return null;
     const worst = warnings.some((w) => w.rating === "avoid") ? "avoid" : "caution";
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `metallurgy-warning sev-${worst}`, children: [
@@ -29482,7 +29504,7 @@ function MetallurgyAcidWarning({ metallurgySelected, chemicalName }) {
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { children: warnings.map((w, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("strong", { children: [
           w.metallurgyLabel,
-          w.approx ? " (approx.)" : "",
+          w.userAssigned ? " (your mapping)" : w.approx ? " (approx.)" : "",
           ": "
         ] }),
         w.note
@@ -30583,6 +30605,7 @@ function MoreToolsGroup({ id, label, description, children }) {
   }
 function BoilerCleanCard({ recommendedBoilerCleanSystem, programEngineeringData }) {
     const boilerMetallurgySelected = (programEngineeringData && programEngineeringData.boiler && Array.isArray(programEngineeringData.boiler.metallurgy)) ? programEngineeringData.boiler.metallurgy : [];
+    const boilerMetallurgyOtherEntries = (programEngineeringData && programEngineeringData.boiler && Array.isArray(programEngineeringData.boiler.metallurgyOtherEntries)) ? programEngineeringData.boiler.metallurgyOtherEntries : [];
     const [boilerCleanMode, setBoilerCleanMode] = usePersistedState("boilerCleanMode", "hcl");
     const [boilerCleanWizardStep, setBoilerCleanWizardStep] = (0, import_react.useState)(1);
     const [boilerCleanQualityTier, setBoilerCleanQualityTier] = usePersistedState("boilerCleanQualityTier", "Professional");
@@ -30670,7 +30693,7 @@ function BoilerCleanCard({ recommendedBoilerCleanSystem, programEngineeringData 
           boilerCleanMode === "sulfamic" && "A dry crystalline solid, not a liquid concentrate \u2014 longer shelf life and lower shipping/storage cost. Documented safe on stainless steel, copper, AND brass simultaneously without pitting or stress corrosion cracking (Chemtex, Mistral NI, Manganese-Dioxide), same as the other cleaning cards in this tool. Keep circulation at or below the ~60\xB0C used for HCl above, not EDTA's 140\xB0C \u2014 sulfamic acid is a well-established industrial chemistry fact that it hydrolyses into ammonium bisulfate and dilute sulfuric acid under prolonged hot aqueous exposure, so it is better suited to shorter, cooler boiler pickles than to extended high-temperature programmes.",
           boilerCleanMode === "edta" && "The preferred modern choice for iron-oxide-dominant deposits and complex once-through/supercritical systems (Veolia Water Handbook). BHEL documentation specifies 4% ammoniated EDTA with inhibitors, circulated at 140\xB0C for several hours until iron concentration stabilises. Requires far fewer chemicals (7 vs. 12 for HCl) and no nitrogen blanketing, but the elevated-temperature circulation is itself a real operational requirement."
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: boilerMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[boilerCleanMode] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: boilerMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[boilerCleanMode], metallurgyOtherEntries: boilerMetallurgyOtherEntries }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(WizardNav, { currentStep: 1, totalSteps: 5, onBack: () => {
         }, onNext: () => setBoilerCleanWizardStep(2) })
       ] }),
@@ -30943,6 +30966,7 @@ function BoilerCleanCard({ recommendedBoilerCleanSystem, programEngineeringData 
   /* ---- SECTION: Chiller Loop Descaling (sec-clean-chiller-descale) ---- */
   function ChillerCleanCard({recommendedChCleanSystem, programEngineeringData}) {
     const chMetallurgySelected = (programEngineeringData && programEngineeringData.chiller && Array.isArray(programEngineeringData.chiller.metallurgy)) ? programEngineeringData.chiller.metallurgy : [];
+    const chMetallurgyOtherEntries = (programEngineeringData && programEngineeringData.chiller && Array.isArray(programEngineeringData.chiller.metallurgyOtherEntries)) ? programEngineeringData.chiller.metallurgyOtherEntries : [];
     const [chCleanFoulingType, setChCleanFoulingType] = usePersistedState("chCleanFoulingType", "combined");
     const [chCleanMode, setChCleanMode] = usePersistedState("chCleanMode", "citric");
     const [chCleanWizardStep, setChCleanWizardStep] = (0, import_react.useState)(1);
@@ -31037,7 +31061,7 @@ function BoilerCleanCard({ recommendedBoilerCleanSystem, programEngineeringData 
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: `system-tab ${chCleanMode === "sulfamic" ? "active" : ""}`, onClick: () => setChCleanMode("sulfamic"), children: "Sulfamic Acid — solid, widest metal compatibility" })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginTop: 8, fontSize: 11 }, children: chCleanMode === "citric" ? "Preferred for chiller loops, which commonly include copper or stainless components (evaporator tubes, fittings) that HCl would attack — citric acid is confirmed safe on stainless and dissimilar alloys by commercial descaling product literature. Rust-strength target: 8–12% (BuyCleaningSupplies commercial technical guide)." : "A dry crystalline solid, not a liquid concentrate — longer shelf life and lower shipping/storage cost. Documented safe on stainless steel, copper, AND brass simultaneously without pitting or stress corrosion cracking (Chemtex, Mistral NI, Manganese-Dioxide) — a strong fit for mixed-metallurgy chiller loops. Rust-strength target: 8–10% (Manganese-Dioxide, Mistral NI, Chemtex — three independent sources)." }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: chMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[chCleanMode] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: chMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[chCleanMode], metallurgyOtherEntries: chMetallurgyOtherEntries }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PHIndicatorBadge, { indicatorKey: "bromophenolBlue", expectedPh: chCleanMode === "citric" ? "~2–3 (mild acid)" : "~1–2 (strong acid)" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(WizardNav, { currentStep: 1, totalSteps: 4, onBack: () => {
         }, onNext: () => setChCleanWizardStep(2) })
@@ -31601,6 +31625,7 @@ function HxDescaleCard() {
   /* ---- SECTION: Cooling Tower Descaling (sec-clean-tower-descale) ---- */
 function TowerCleanCard({recommendedCtCleanSystem, programEngineeringData}) {
     const ctMetallurgySelected = (programEngineeringData && programEngineeringData.tower && Array.isArray(programEngineeringData.tower.metallurgy)) ? programEngineeringData.tower.metallurgy : [];
+    const ctMetallurgyOtherEntries = (programEngineeringData && programEngineeringData.tower && Array.isArray(programEngineeringData.tower.metallurgyOtherEntries)) ? programEngineeringData.tower.metallurgyOtherEntries : [];
     const [ctCleanFoulingType, setCtCleanFoulingType] = usePersistedState("ctCleanFoulingType", "combined");
     const [ctCleanMode, setCtCleanMode] = usePersistedState("ctCleanMode", "citric");
     const [ctCleanWizardStep, setCtCleanWizardStep] = (0, import_react.useState)(1);
@@ -31709,7 +31734,7 @@ function TowerCleanCard({recommendedCtCleanSystem, programEngineeringData}) {
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: `system-tab ${ctCleanMode === "sulfamic" ? "active" : ""}`, onClick: () => setCtCleanMode("sulfamic"), children: "Sulfamic Acid — solid, widest metal compatibility" })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginTop: 8, fontSize: 11 }, children: ctCleanMode === "citric" ? 'A comparative experimental study (weight-loss testing on boiler tube samples) confirms citric acid as the safer choice for mixed metallurgy — commercial descaling products built on it are explicitly marketed as "safe on stainless steel" and dissimilar alloys, where HCl is not. Rust-strength target: 8–12% (BuyCleaningSupplies commercial technical guide).' : "A dry crystalline solid, not a liquid concentrate — longer shelf life and lower shipping/storage cost. Documented safe on stainless steel, copper, AND brass simultaneously without pitting or stress corrosion cracking (Chemtex, Mistral NI, Manganese-Dioxide) — a strong fit for mixed-metallurgy towers. Rust-strength target: 8–10% (Manganese-Dioxide, Mistral NI, Chemtex — three independent sources)." }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: ctMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[ctCleanMode] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidWarning, { metallurgySelected: ctMetallurgySelected, chemicalName: ACID_MODE_TO_CHEMICAL_NAME[ctCleanMode], metallurgyOtherEntries: ctMetallurgyOtherEntries }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginTop: 4, marginBottom: 10, fontSize: 11, borderLeftColor: "#FF9F1C", color: "#FF9F1C" }, children: "⚠ Never mix sodium hypochlorite (used in the disinfection card below) directly with acid — this reaction releases toxic chlorine gas. Complete and fully drain/flush any disinfection step before starting acid descaling, and vice versa." }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PHIndicatorBadge, { indicatorKey: "bromophenolBlue", expectedPh: ctCleanMode === "citric" ? "~2–3 (mild acid)" : "~1–2 (strong acid)" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(WizardNav, { currentStep: 1, totalSteps: 5, onBack: () => {
@@ -49490,6 +49515,28 @@ function SystemModeCard({ system, towerMode, setTowerMode }) {
       }
     }
 
+    // "Other / not listed" metals (v9.228): a small repeatable list instead of one free-text field,
+    // so a metal this tool doesn't have a checkbox for can still be typed in by name AND, if the user
+    // says which of the six known categories it behaves like, actually participate in the compatibility
+    // warnings below (and on the cleaning cards + printed proposal) — not just printed as plain text.
+    // Pre-v9.228 jobs only ever saved the single metallurgyOther string; show that as one starter row
+    // (with no category yet, same as before) until the user edits it into the new structured list.
+    const metallurgyOtherEntries = Array.isArray(engData.metallurgyOtherEntries)
+      ? engData.metallurgyOtherEntries
+      : (metallurgyOtherValue.trim() ? [{ id: "legacy", label: metallurgyOtherValue, category: "" }] : []);
+    function setMetallurgyOtherEntries(next) {
+      setEngField("metallurgyOtherEntries", next);
+    }
+    function addOtherMetalEntry() {
+      setMetallurgyOtherEntries([...metallurgyOtherEntries, { id: Date.now(), label: "", category: "" }]);
+    }
+    function updateOtherMetalEntry(id, field, value) {
+      setMetallurgyOtherEntries(metallurgyOtherEntries.map((e) => e.id === id ? { ...e, [field]: value } : e));
+    }
+    function removeOtherMetalEntry(id) {
+      setMetallurgyOtherEntries(metallurgyOtherEntries.filter((e) => e.id !== id));
+    }
+
     const dosingMode = engData.dosingMode || "standard";
     const availableChemicals = Array.isArray(engData.availableChemicals) ? engData.availableChemicals : [];
     const availableChemicalsSet = new Set(availableChemicals.map((s) => s.toLowerCase()));
@@ -49817,16 +49864,42 @@ function SystemModeCard({ system, towerMode, setTowerMode }) {
         system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginTop: 4, color: "var(--text-faint)", fontSize: 11 }, children: "A chiller loop here is sealed/closed — no evaporation or blowdown, so no continuous make-up water calculation applies. Coolant type defaults to plain water (the standard for most chillers); switch to Water + Glycol only where sub-zero freeze protection is genuinely needed, then set the glycol concentrate's share of System Volume above — see the Chiller System Volume & Fluid Composition calculator under More Production Tools for the full breakdown, or use the one-click button on the Antifreeze Blend Builder to fill the concentrate % in from your chosen freeze-point target." }),
         system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginTop: 4, color: "var(--text-faint)", fontSize: 11 }, children: "Cooling Load and ΔT together size the chilled water flow rate this system needs — see the Chilled Water Flow Rate Calculator under More Production Tools for the full breakdown and a one-click way to carry the result into the Recirculation Rate field above." }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 12 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Metallurgy / materials of construction (tick all that apply to this system)" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Metallurgy / materials of construction (tick all that apply to this system — each one feeds the compatibility warnings below, on the cleaning cards, and in the printed proposal)" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 20px", marginTop: 2 }, children: metallurgyOptions.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "checkbox-row", style: { minWidth: 190, marginBottom: 4 }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: metallurgySelected.includes(opt), onChange: () => toggleMetallurgy(opt) }),
             opt
           ] }, opt)) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "cert-field", style: { marginTop: 6, maxWidth: 340 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Other / not listed (optional)" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", value: metallurgyOtherValue, onChange: (e) => setEngField("metallurgyOther", e.target.value), placeholder: "e.g. PTFE lining, exotic alloy" })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 10, maxWidth: 460 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "field-label", children: "Other metal / material not listed above (optional)" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { fontSize: 10.5, marginTop: 2, marginBottom: 6 }, children: "Type its name, then — if it's close to one of the metals this tool has compatibility data for — pick which one, so it's included in the warnings too (e.g. Monel ≈ Copper/Brass). Leave it as “No match” for something like PTFE lining that isn't really a bare metal; it'll still be printed on the proposal, just without a compatibility check." }),
+            metallurgyOtherEntries.map((entry) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "custom-material-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                "input",
+                {
+                  type: "text",
+                  placeholder: "e.g. Monel, Hastelloy C, PTFE lining",
+                  value: entry.label,
+                  onChange: (e) => updateOtherMetalEntry(entry.id, "label", e.target.value),
+                  className: "custom-material-name"
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "select",
+                {
+                  value: entry.category || "",
+                  onChange: (e) => updateOtherMetalEntry(entry.id, "category", e.target.value),
+                  style: { minWidth: 200 },
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: "No match / informational only" }),
+                    Object.keys(METALLURGY_OTHER_CATEGORY_LABELS).map((cat) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: cat, children: METALLURGY_OTHER_CATEGORY_LABELS[cat] }, cat))
+                  ]
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "custom-material-remove", onClick: () => removeOtherMetalEntry(entry.id), title: "Remove this material", children: "✕" })
+            ] }, entry.id)),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "asc-apply-btn", style: { marginTop: 6 }, onClick: addOtherMetalEntry, children: "+ Add material" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidReferenceBlock, { metallurgySelected })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MetallurgyAcidReferenceBlock, { metallurgySelected, metallurgyOtherEntries })
         ] })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 10 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "asc-apply-btn", style: { borderColor: "#4FA8D8", color: "#4FA8D8" }, onClick: runScan, disabled: programScanning, children: programScanning ? "⏳ Scanning…" : "\u{1F50D} Build Program Summary" }) }),
@@ -53327,13 +53400,13 @@ function GradeSelector() {
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "var(--text-faint)" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                   "Version & Data Log",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.227 — tap to see full history" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.228 — tap to see full history" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12 }, children: "Every reference range in this tool is sourced from a real, citable document — a patent, a commercial technical bulletin, a peer-reviewed paper, or a documented field case study. This log shows the last several updates in plain language so it's quick to skim; the full technical history (every version since the tool started) is kept safe separately if it's ever needed." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 20, padding: 16, background: "var(--bg-inset-alt)", border: "1px solid #1B3A4D", borderRadius: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.227" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.228" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a clean Dashboard home screen (8 system/tool cards, each flagging only what genuinely needs attention where that applies), get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 274 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators), and turn that same product data into marketing material (Marketing Ideas: a templated ad copy/slogan generator, an ideas board, and a poster/flyer maker). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 68 calculator/reference cards across 16 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "Every field auto-saves locally in this browser (no account or internet needed), every reference figure is sourced and citable, and every calculation has been verified against a hand-calculated expected value using real-browser testing — not assumed correct because the code looks right." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }, children: [
@@ -53342,7 +53415,7 @@ function GradeSelector() {
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "version-log-current", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.227" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.228" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-10-14" })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "asc-formula-table", style: { marginTop: 12 }, children: [
@@ -53352,6 +53425,11 @@ function GradeSelector() {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "What changed" })
                 ] }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.228" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Clearer wording on the metallurgy labels in Program Builder, and \"Other / not listed\" is now a proper list: name a metal this tool doesn't have a checkbox for and pick which known metal it behaves like, and it joins the same Avoid/Caution warnings as the ticked checkboxes — live on the cleaning cards, in Program Builder, and on the printed proposal." })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.227" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
@@ -53396,11 +53474,6 @@ function GradeSelector() {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.219" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Fixed a contradiction in the Anticorrosion batch instructions where the same TTA amount was treated as both a finished solution and raw powder needing fresh preparation." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.218" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Fixed four issues: system name is now editable on certificates, internal monitoring targets no longer show on customer documents, shock dose now uses each system's real volume, and a TTA concentration error in dosing calculations was corrected." })
                   ] }),
                 ] })
               ] }),
