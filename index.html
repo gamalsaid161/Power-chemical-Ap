@@ -24590,6 +24590,21 @@ var GLOBAL_SEARCH_INDEX = Object.entries(JUMP_SECTIONS).flatMap(
       { id: "sec-ro-cip", label: "CIP (Membrane Cleaning)", category: "Membrane Cleaning", defaultIncluded: false, doseGroup: "cleaning" }
     ]
   };
+// Whether a product card (identified by its own PROGRAM_CATALOG id, which is the same string as its
+// root <div id="...">) should start expanded (v9.230): true once the user has ticked it in Program
+// Builder for the active system+mode, or — before they've touched Program Builder at all for that
+// system+mode — whenever the catalog itself ships it pre-ticked (defaultIncluded). A card whose id
+// isn't in that system's catalog at all (e.g. the biocide cards on RO, which has no biocide catalog
+// entries) is left alone — this function only ever hides/shows cards Program Builder can actually speak to.
+function isProgramItemSelected(programComponents, programType, system, catalogId) {
+  const catalog = (PROGRAM_CATALOG && PROGRAM_CATALOG[system]) || [];
+  const item = catalog.find((c) => c.id === catalogId);
+  if (!item) return true;
+  const storedForSystem = (programComponents && programComponents[system]) || {};
+  const storedForMode = storedForSystem[programType];
+  if (!Array.isArray(storedForMode)) return !!item.defaultIncluded;
+  return storedForMode.includes(catalogId);
+}
 var PROGRAM_ITEM_DESCRIPTIONS = {
     "sec-antiscalant": "A threshold-effect polymer/phosphonate blend, dosed continuously into the recirculating water to keep calcium carbonate and related mineral salts in solution below their normal precipitation point, preventing scale deposits on heat-transfer surfaces.",
     "sec-anticorrosion": "A film-forming or passivating inhibitor blend, dosed continuously to protect carbon steel and other wetted metal surfaces from oxygen and chloride-driven corrosion, extending equipment service life.",
@@ -34450,7 +34465,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: SBS Dechlorination Builder (sec-ro-sbs) ---- */
-  function SbsCard({ materialPrices, priceCurrency }) {
+  function SbsCard({ materialPrices, priceCurrency, programComponents, programType }) {
     const [sbsQtyPerM3, setSbsQtyPerM3] = usePersistedState("sbsQtyPerM3", 6e-3);
     const [sbsQtyUnit, setSbsQtyUnit] = usePersistedState("sbsQtyUnit", "kg");
     const [sbsQtyDensity, setSbsQtyDensity] = usePersistedState("sbsQtyDensity", 1.3);
@@ -34478,7 +34493,7 @@ function MoldPassivationCard() {
 
     const sbsBatchCostTotal = sbsWorkflowResult.packagedWeightKg * (materialPrices["Sodium Bisulfite"] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-sbs", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-sbs", style: { borderColor: "#4FA8D8" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "ro", "sec-ro-sbs") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
       "SBS Dechlorination \u2014 Step-by-Step Dilution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -34677,7 +34692,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: RO Membrane Cleaning (CIP) (sec-ro-cip) ---- */
-  function CipCard() {
+  function CipCard({ programComponents, programType }) {
     const [cipTankVolL, setCipTankVolL] = usePersistedState("cipTankVolL", 1e3);
     const [cipWizardStep, setCipWizardStep] = (0, import_react.useState)(1);
     const [cipCitricPct, setCipCitricPct] = usePersistedState("cipCitricPct", 2);
@@ -34695,7 +34710,7 @@ function MoldPassivationCard() {
       return { tankVolKg, citricKg, naohKg, citricWaterKg, naohWaterKg };
     }, [cipTankVolL, cipCitricPct, cipNaOHPct]);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-cip", style: { borderColor: "#FFC93C" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-cip", style: { borderColor: "#FFC93C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "ro", "sec-ro-cip") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FFC93C" }, children: [
       "RO Membrane Cleaning (CIP) \u2014 Cleaning Solution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -34830,7 +34845,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: RO Antiscalant Builder (sec-ro-antiscalant) ---- */
-  function RoAntiscalantCard({ recommendedRoSystem, materialPrices, priceCurrency, roQtyPerM3, setRoQtyPerM3, getMyProductsFor }) {
+  function RoAntiscalantCard({ recommendedRoSystem, materialPrices, priceCurrency, roQtyPerM3, setRoQtyPerM3, getMyProductsFor, programComponents, programType }) {
     const [roScaleType, setRoScaleType] = usePersistedState("roScaleType", "carbonate");
     const [roWizardStep, setRoWizardStep] = (0, import_react.useState)(1);
     const [roQtyUnit, setRoQtyUnit] = usePersistedState("roQtyUnit", "kg");
@@ -34859,7 +34874,7 @@ function MoldPassivationCard() {
 
     const roBatchCostTotal = roWorkflowResult.packagedWeightKg * (materialPrices["RO Antiscalant"] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-antiscalant", style: { borderColor: "#FFC93C" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-ro-antiscalant", style: { borderColor: "#FFC93C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "ro", "sec-ro-antiscalant") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FFC93C" }, children: [
       "RO Antiscalant \u2014 Step-by-Step Dilution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -35072,7 +35087,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Boiler Oxygen Scavenger (sec-oxygen-scavenger) ---- */
-  function BsCard({ recommendedBsSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode, availableChemicals }) {
+  function BsCard({ recommendedBsSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode, availableChemicals, programComponents, programType }) {
     const [bsWorkflowTier, setBsWorkflowTier] = usePersistedState("bsWorkflowTier", "LP");
     const [bsSystemMode, setBsSystemMode] = usePersistedState("bsSystemMode", "sulfiteDeha");
     const [bsWizardStep, setBsWizardStep] = (0, import_react.useState)(1);
@@ -35115,7 +35130,7 @@ function MoldPassivationCard() {
 
     const bsBatchCostTotal = bsWorkflowResult.packagedWeightKg * (materialPrices[bsWorkflowResult.tierInfo.activeName] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-oxygen-scavenger", "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-oxygen-scavenger", "data-collapsed": isProgramItemSelected(programComponents, programType, "boiler", "sec-oxygen-scavenger") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#00D9A3" }, children: [
       "Oxygen Scavenger \u2014 Step-by-Step Dilution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -35390,7 +35405,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Boiler Scale/Phosphate Inhibitor (sec-scale-inhibitor) ---- */
-  function ScCard({ materialPrices, priceCurrency, getMyProductsFor, scQtyPerM3, setScQtyPerM3, boilerSystemVol }) {
+  function ScCard({ materialPrices, priceCurrency, getMyProductsFor, scQtyPerM3, setScQtyPerM3, boilerSystemVol, programComponents, programType }) {
     const [scSystemMode, setScSystemMode] = usePersistedState("scSystemMode", "tsp");
     const [scWizardStep, setScWizardStep] = (0, import_react.useState)(1);
     const [scQtyUnit, setScQtyUnit] = usePersistedState("scQtyUnit", "kg");
@@ -35426,7 +35441,7 @@ function MoldPassivationCard() {
 
     const scBatchCostTotal = scWorkflowResult.packagedWeightKg * (materialPrices[scWorkflowResult.tierInfo.activeName] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-scale-inhibitor", style: { borderColor: "#FFC93C" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-scale-inhibitor", style: { borderColor: "#FFC93C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "boiler", "sec-scale-inhibitor") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FFC93C" }, children: [
       "Boiler Scale/Phosphate Inhibitor \u2014 Step-by-Step Dilution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -35682,7 +35697,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Condensate Corrosion Inhibitor (sec-condensate-inhibitor) ---- */
-  function BcCard({ recommendedBcSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode, availableChemicals }) {
+  function BcCard({ recommendedBcSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode, availableChemicals, programComponents, programType }) {
     const [bcWorkflowTier, setBcWorkflowTier] = usePersistedState("bcWorkflowTier", "LP");
     const [bcSystemMode, setBcSystemMode] = usePersistedState("bcSystemMode", "neutralising");
     const [bcWizardStep, setBcWizardStep] = (0, import_react.useState)(1);
@@ -35723,7 +35738,7 @@ function MoldPassivationCard() {
 
     const bcBatchCostTotal = bcWorkflowResult.packagedWeightKg * (materialPrices[bcWorkflowResult.tierInfo.activeName] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-condensate-inhibitor", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-condensate-inhibitor", style: { borderColor: "#4FA8D8" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "boiler", "sec-condensate-inhibitor") ? "false" : "true", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
       "Condensate Corrosion Inhibitor \u2014 Step-by-Step Dilution Builder",
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -35983,7 +35998,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Antiscalant Builder (sec-antiscalant) ---- */
-  function AntiscalantCard({ qualityTier, atmpRecommended, recommendedAscSystem, getMyProductsFor, materialPrices, priceCurrency, ascQtyPerM3, setAscQtyPerM3, customerSystemVol, dosingMode, availableChemicals }) {
+  function AntiscalantCard({ qualityTier, atmpRecommended, recommendedAscSystem, getMyProductsFor, materialPrices, priceCurrency, ascQtyPerM3, setAscQtyPerM3, customerSystemVol, dosingMode, availableChemicals, programComponents, programType }) {
     const [ascWorkflowTier, setAscWorkflowTier] = usePersistedState("ascWorkflowTier", "Medium");
     const [ascSystemMode, setAscSystemMode] = usePersistedState("ascSystemMode", "phosphonate");
     const [ascWizardStep, setAscWizardStep] = (0, import_react.useState)(1);
@@ -36133,7 +36148,7 @@ function MoldPassivationCard() {
     }, [ascSystemMode, ascWorkflowTier, ascQtyPerM3, ascQtyUnit, ascQtyDensity, ascQtyTimeBasis, ascBatchSizeKg, qualityTier, ascCustomRatios, atmpRecommended]);
     const ascBatchCostTotal = ascWorkflowResult.batchWeights.reduce((sum, b) => sum + b.weightKg * (materialPrices[b.name] || 0), 0) + ascWorkflowResult.carrierWeightKg * (materialPrices["Water/carrier"] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-antiscalant", "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-antiscalant", "data-collapsed": isProgramItemSelected(programComponents, programType, "tower", "sec-antiscalant") ? "false" : "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#00D9A3" }, children: [
         "Antiscalant \u2014 Step-by-Step Formula Builder",
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -36515,7 +36530,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Anticorrosion Builder (sec-anticorrosion) ---- */
-  function AnticorrosionCard({ qualityTier, recommendedCorSystem, getMyProductsFor, materialPrices, priceCurrency, corQtyPerM3, setCorQtyPerM3, customerSystemVol, ttaStockTargetPct, dosingMode, availableChemicals }) {
+  function AnticorrosionCard({ qualityTier, recommendedCorSystem, getMyProductsFor, materialPrices, priceCurrency, corQtyPerM3, setCorQtyPerM3, customerSystemVol, ttaStockTargetPct, dosingMode, availableChemicals, programComponents, programType }) {
     const [corWizardStep, setCorWizardStep] = (0, import_react.useState)(1);
     const [corWorkflowTier, setCorWorkflowTier] = usePersistedState("corWorkflowTier", "Medium");
     const [corSystemMode, setCorSystemMode] = usePersistedState("corSystemMode", "znmoly");
@@ -36647,7 +36662,7 @@ function MoldPassivationCard() {
     const corTtaEntry = corWorkflowResult.batchWeights.find((b) => b.name === "TTA");
     const corBatchCostTotal = corWorkflowResult.batchWeights.reduce((sum, b) => sum + b.weightKg * (materialPrices[b.name] || 0), 0) + corWorkflowResult.carrierWeightKg * (materialPrices["Water/carrier"] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-anticorrosion", style: { borderColor: "#FF9F1C", background: "rgba(255,159,28,0.05)" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-anticorrosion", style: { borderColor: "#FF9F1C", background: "rgba(255,159,28,0.05)" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "tower", "sec-anticorrosion") ? "false" : "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FF9F1C" }, children: [
         "Anticorrosion \u2014 Step-by-Step Formula Builder",
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -37051,7 +37066,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: TTA (Tolyltriazole) Builder (sec-tta) ---- */
-  function TtaCard({ materialPrices, priceCurrency, customerSystemVol, ttaStockTargetPct, setTtaStockTargetPct }) {
+  function TtaCard({ materialPrices, priceCurrency, customerSystemVol, ttaStockTargetPct, setTtaStockTargetPct, programComponents, programType }) {
     const [ttaQualityTier, setTtaQualityTier] = usePersistedState("ttaQualityTier", "Medium");
     const [ttaWizardStep, setTtaWizardStep] = (0, import_react.useState)(1);
     const [ttaNaohExcessPct, setTtaNaohExcessPct] = usePersistedState("ttaNaohExcessPct", 15);
@@ -37124,7 +37139,7 @@ function MoldPassivationCard() {
     const ttaNaohKgInBatch = ttaStage1Result.naohActualG / 1e3 * ttaStage1ScaleFactor;
     const ttaStage1WaterKgInBatch = ttaStage1Result.waterG / 1e3 * ttaStage1ScaleFactor;
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-tta", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-tta", style: { borderColor: "#4FA8D8" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "tower", "sec-tta") ? "false" : "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
         "TTA (Tolyltriazole) \u2014 Step-by-Step Formula Builder",
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -37502,7 +37517,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: Chiller Inhibitor Builder (sec-chiller-builder) ---- */
-  function ChillerBuilderCard({ recommendedChSystem, materialPrices, priceCurrency, chillerSystemVol, ttaStockTargetPct, chQualityTier, setChQualityTier, dosingMode, availableChemicals }) {
+  function ChillerBuilderCard({ recommendedChSystem, materialPrices, priceCurrency, chillerSystemVol, ttaStockTargetPct, chQualityTier, setChQualityTier, dosingMode, availableChemicals, programComponents, programType }) {
     const [chWizardStep, setChWizardStep] = (0, import_react.useState)(1);
     const [chWorkflowTier, setChWorkflowTier] = usePersistedState("chWorkflowTier", "Medium");
     const [chSystemMode, setChSystemMode] = usePersistedState("chSystemMode", "phosphonate");
@@ -37628,7 +37643,7 @@ function MoldPassivationCard() {
     }, [chSystemMode, chWorkflowTier, chQtyPerM3, chNitriteQtyPerM3, chMolybdateQtyPerM3, chQtyUnit, chQtyDensity, chQtyTimeBasis, chBatchSizeKg, chQualityTier, chCustomRatios, ttaStockTargetPct]);
     const chBatchCostTotal = chWorkflowResult.batchWeights.reduce((sum, b) => sum + b.weightKg * (materialPrices[b.name] || 0), 0) + chWorkflowResult.carrierWeightKg * (materialPrices["Water/carrier"] || 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-chiller-builder", "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-chiller-builder", "data-collapsed": isProgramItemSelected(programComponents, programType, "chiller", "sec-chiller-builder") ? "false" : "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#00D9A3" }, children: [
         "Chiller Inhibitor \u2014 Step-by-Step Formula Builder",
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -38020,7 +38035,7 @@ function MoldPassivationCard() {
   }
 
   /* ---- SECTION: EG Antifreeze Blend (sec-eg-blend) ---- */
-  function EgBlendCard({ materialPrices, priceCurrency, programEngineeringData, setProgramEngineeringData }) {
+  function EgBlendCard({ materialPrices, priceCurrency, programEngineeringData, setProgramEngineeringData, programComponents, programType }) {
     const [antifreezeMode, setAntifreezeMode] = usePersistedState("antifreezeMode", "eg");
     const [egQualityTier, setEgQualityTier] = usePersistedState("egQualityTier", "Professional");
     const [egWizardStep, setEgWizardStep] = (0, import_react.useState)(1);
@@ -38109,7 +38124,7 @@ function MoldPassivationCard() {
     }, [antifreezeMode, egQualityTier, egBatchSizeKg, egTargetFreezeC]);
     const egBatchCostTotal = egBlendResult.batchWeights.reduce((sum, b) => sum + b.weightKg * (materialPrices[b.name] || 0), 0);
 
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-eg-blend", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-eg-blend", style: { borderColor: "#4FA8D8" }, "data-collapsed": isProgramItemSelected(programComponents, programType, "chiller", "sec-eg-blend") ? "false" : "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
         "Antifreeze Corrosion Inhibitor Blend \u2014 Step-by-Step Formula Builder",
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -38309,7 +38324,7 @@ function MoldPassivationCard() {
     ] });
   }
 
-  function IsoCard({ useIsoGlutRotation, today, isoGlutDayA, materialPrices, priceCurrency, customerSystemVol }) {
+  function IsoCard({ useIsoGlutRotation, today, isoGlutDayA, materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [isoQualityTier, setIsoQualityTier] = usePersistedState("isoQualityTier", "Medium");
     const [isoStockConcPct, setIsoStockConcPct] = usePersistedState("isoStockConcPct", 14);
     const [isoWizardStep, setIsoWizardStep] = (0, import_react.useState)(1);
@@ -38362,7 +38377,7 @@ function MoldPassivationCard() {
       };
     }, [isoFinalSolPerM3, isoFinalSolUnit, isoFinalSolDensity, isoStockConcPct, isoQualityTier, isoQtyTimeBasis, isoBatchSizeKg]);
     const isoBatchCostTotal = isoWorkflowResult.packagedStockWeightKg * (materialPrices["Isothiazolinone (14% stock)"] || 0) + isoWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-iso", style: { borderColor: "#00D9A3", opacity: useIsoGlutRotation && today !== isoGlutDayA ? 0.55 : 1 }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-iso", style: { borderColor: "#00D9A3", opacity: useIsoGlutRotation && today !== isoGlutDayA ? 0.55 : 1 }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-iso") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#00D9A3" }, children: [
                 "Isothiazolinone (CMIT/MIT) \u2014 Step-by-Step Dilution Builder",
                 useIsoGlutRotation ? ` \u2014 every ${isoGlutDayA}` : "",
@@ -38648,7 +38663,7 @@ function MoldPassivationCard() {
             ] });
   }
 
-  function GlutCard({ useIsoGlutRotation, today, isoGlutDayB, materialPrices, priceCurrency, customerSystemVol }) {
+  function GlutCard({ useIsoGlutRotation, today, isoGlutDayB, materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [glutQualityTier, setGlutQualityTier] = usePersistedState("glutQualityTier", "Medium");
     const [glutStockConcPct, setGlutStockConcPct] = usePersistedState("glutStockConcPct", 50);
     const [glutWizardStep, setGlutWizardStep] = (0, import_react.useState)(1);
@@ -38701,7 +38716,7 @@ function MoldPassivationCard() {
       };
     }, [glutFinalSolPerM3, glutFinalSolUnit, glutFinalSolDensity, glutStockConcPct, glutQualityTier, glutQtyTimeBasis, glutBatchSizeKg]);
     const glutBatchCostTotal = glutWorkflowResult.packagedStockWeightKg * (materialPrices["Glutaraldehyde (stock)"] || 0) + glutWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-glut", style: { borderColor: "#FF9F1C", opacity: useIsoGlutRotation && today !== isoGlutDayB ? 0.55 : 1 }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-glut", style: { borderColor: "#FF9F1C", opacity: useIsoGlutRotation && today !== isoGlutDayB ? 0.55 : 1 }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-glut") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FF9F1C" }, children: [
                 "Glutaraldehyde \u2014 Step-by-Step Dilution Builder",
                 useIsoGlutRotation ? ` \u2014 every ${isoGlutDayB}` : "",
@@ -38989,7 +39004,7 @@ function MoldPassivationCard() {
             ] });
   }
 
-  function DbnpaCard({ materialPrices, priceCurrency, customerSystemVol }) {
+  function DbnpaCard({ materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [dbnpaQualityTier, setDbnpaQualityTier] = usePersistedState("dbnpaQualityTier", "Medium");
     const [dbnpaStockConcPct, setDbnpaStockConcPct] = usePersistedState("dbnpaStockConcPct", 20);
     const [dbnpaWizardStep, setDbnpaWizardStep] = (0, import_react.useState)(1);
@@ -39042,7 +39057,7 @@ function MoldPassivationCard() {
       };
     }, [dbnpaFinalSolPerM3, dbnpaFinalSolUnit, dbnpaFinalSolDensity, dbnpaStockConcPct, dbnpaQualityTier, dbnpaQtyTimeBasis, dbnpaBatchSizeKg]);
     const dbnpaBatchCostTotal = dbnpaWorkflowResult.packagedStockWeightKg * (materialPrices["DBNPA"] || 0) + dbnpaWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-dbnpa", style: { borderColor: "#FFC93C" }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-dbnpa", style: { borderColor: "#FFC93C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-dbnpa") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FFC93C" }, children: [
                 "DBNPA \u2014 Step-by-Step Dilution Builder (economical option)",
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -39324,7 +39339,7 @@ function MoldPassivationCard() {
             ] });
   }
 
-  function QuatCard({ materialPrices, priceCurrency, customerSystemVol }) {
+  function QuatCard({ materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [quatQualityTier, setQuatQualityTier] = usePersistedState("quatQualityTier", "Medium");
     const [quatStockConcPct, setQuatStockConcPct] = usePersistedState("quatStockConcPct", 50);
     const [quatWizardStep, setQuatWizardStep] = (0, import_react.useState)(1);
@@ -39377,7 +39392,7 @@ function MoldPassivationCard() {
       };
     }, [quatFinalSolPerM3, quatFinalSolUnit, quatFinalSolDensity, quatStockConcPct, quatQualityTier, quatQtyTimeBasis, quatBatchSizeKg]);
     const quatBatchCostTotal = quatWorkflowResult.packagedStockWeightKg * (materialPrices["QUAT"] || 0) + quatWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-quat", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-quat", style: { borderColor: "#4FA8D8" }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-quat") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8" }, children: [
                 "QUAT \u2014 Step-by-Step Dilution Builder",
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -39658,7 +39673,7 @@ function MoldPassivationCard() {
             ] });
   }
 
-  function ThpsCard({ materialPrices, priceCurrency, customerSystemVol }) {
+  function ThpsCard({ materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [thpsQualityTier, setThpsQualityTier] = usePersistedState("thpsQualityTier", "Medium");
     const [thpsStockConcPct, setThpsStockConcPct] = usePersistedState("thpsStockConcPct", 75);
     const [thpsWizardStep, setThpsWizardStep] = (0, import_react.useState)(1);
@@ -39711,7 +39726,7 @@ function MoldPassivationCard() {
       };
     }, [thpsFinalSolPerM3, thpsFinalSolUnit, thpsFinalSolDensity, thpsStockConcPct, thpsQualityTier, thpsQtyTimeBasis, thpsBatchSizeKg]);
     const thpsBatchCostTotal = thpsWorkflowResult.packagedStockWeightKg * (materialPrices["THPS"] || 0) + thpsWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-thps", style: { borderColor: "#FF9F1C" }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-thps", style: { borderColor: "#FF9F1C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-thps") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FF9F1C" }, children: [
                 "THPS \u2014 Step-by-Step Dilution Builder",
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -39992,7 +40007,7 @@ function MoldPassivationCard() {
             ] });
   }
 
-  function BromineCard({ materialPrices, priceCurrency, customerSystemVol }) {
+  function BromineCard({ materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }) {
     const [bromineQualityTier, setBromineQualityTier] = usePersistedState("bromineQualityTier", "Medium");
     const [bromineStockConcPct, setBromineStockConcPct] = usePersistedState("bromineStockConcPct", 23);
     const [bromineWizardStep, setBromineWizardStep] = (0, import_react.useState)(1);
@@ -40045,7 +40060,7 @@ function MoldPassivationCard() {
       };
     }, [bromineFinalSolPerM3, bromineFinalSolUnit, bromineFinalSolDensity, bromineStockConcPct, bromineQualityTier, bromineQtyTimeBasis, bromineBatchSizeKg]);
     const bromineBatchCostTotal = bromineWorkflowResult.packagedStockWeightKg * (materialPrices["Stabilized Bromine"] || 0) + bromineWorkflowResult.packagedWaterWeightKg * (materialPrices["Water/carrier"] || 0);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-bromine", style: { borderColor: "#FFC93C" }, "data-collapsed": "true", children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-bromine", style: { borderColor: "#FFC93C" }, "data-collapsed": isProgramItemSelected(programComponents, programType, system, "sec-bromine") ? "false" : "true", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#FFC93C" }, children: [
                 "Stabilized Bromine \u2014 Step-by-Step Dilution Builder (oxidising)",
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
@@ -41243,24 +41258,35 @@ function ClientHistoryCard() {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full asc-workflow-card", id: "sec-city-water-reference", style: { borderColor: "#4FA8D8" }, "data-collapsed": "true", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "#4FA8D8", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "City Water Reference Library" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-          "select",
-          {
-            value: quickPick,
-            onClick: (e) => e.stopPropagation(),
-            onChange: (e) => {
-              const id = e.target.value;
-              const entry = cityWaterLibrary.find((x) => x.id === id);
-              if (entry) applyEntry(entry);
-              setQuickPick("");
-            },
-            style: { marginLeft: "auto", fontSize: 12, fontWeight: 400, color: "var(--text-primary)", background: "var(--bg-inset)", border: "1px solid #1F2933", borderRadius: 6, padding: "5px 8px", maxWidth: 260 },
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: cityWaterLibrary.length === 0 ? "No recorded cities yet" : "Select a recorded city…" }),
-              governorateOrder.map((gov) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: gov, children: grouped[gov].map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: e.id, children: e.city }, e.id)) }, gov))
-            ]
-          }
-        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { onClick: (e) => e.stopPropagation(), style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "select",
+            {
+              value: quickPick,
+              onChange: (e) => {
+                const id = e.target.value;
+                const entry = cityWaterLibrary.find((x) => x.id === id);
+                if (entry) applyEntry(entry);
+                setQuickPick(id);
+              },
+              style: { fontSize: 12, fontWeight: 400, color: "var(--text-primary)", background: "var(--bg-inset)", border: "1px solid #1F2933", borderRadius: 6, padding: "5px 8px", maxWidth: 260 },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: cityWaterLibrary.length === 0 ? "No recorded cities yet" : "Select a recorded city…" }),
+                governorateOrder.map((gov) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: gov, children: grouped[gov].map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: e.id, children: e.city }, e.id)) }, gov))
+              ]
+            }
+          ),
+          quickPick && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              type: "button",
+              onClick: () => setQuickPick(""),
+              title: "Clear — show the list again without re-applying",
+              style: { background: "transparent", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 13, padding: "2px 4px" },
+              children: "✕"
+            }
+          )
+        ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12, color: "var(--text-muted)" }, children: "Build up your own reference set of municipal drinking-water results by governorate and city, for the times you have to quote before you can reach the site yourself. This library ships empty on purpose -- no hardness, alkalinity, TDS, pH or temperature value is pre-filled here. Enter numbers only from your own lab results or a source you trust; then use Apply to load them into the current system's water-analysis fields as a starting estimate, and re-confirm with a real sample as soon as you can." }),
@@ -49480,9 +49506,7 @@ function SystemModeCard({ system, towerMode, setTowerMode }) {
             ] });
   }
 
-  function ProgramBuilderCard({ system, smartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency }) {
-    const [programType, setProgramType] = usePersistedState("programType", "complete");
-    const [programComponents, setProgramComponents] = usePersistedState("programComponents", {});
+  function ProgramBuilderCard({ system, smartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency, programType, setProgramType, programComponents, setProgramComponents }) {
     const [programCustomerName, setProgramCustomerName] = (0, import_react.useState)("");
     const [programScanResults, setProgramScanResults] = (0, import_react.useState)(null);
     const [programScanning, setProgramScanning] = (0, import_react.useState)(false);
@@ -51035,6 +51059,10 @@ function GradeSelector() {
     const [cleanerSubTab, setCleanerSubTab] = usePersistedState("cleanerSubTab", "tower");
     const [system, setSystem] = usePersistedState("system", "tower");
     const [programEngineeringData, setProgramEngineeringData] = usePersistedState("programEngineeringData", {});
+    // Lifted up from ProgramBuilderCard (v9.230) so the individual product cards below can also read
+    // what's ticked there, to decide whether they should start open or collapsed — see isProgramItemSelected().
+    const [programType, setProgramType] = usePersistedState("programType", "complete");
+    const [programComponents, setProgramComponents] = usePersistedState("programComponents", {});
     const boilerEngData = programEngineeringData.boiler || {};
     const boilerSystemVol = parseFloat(boilerEngData.volume) || 0;
     const boilerDosingMode = boilerEngData.dosingMode || "standard";
@@ -53059,17 +53087,17 @@ function GradeSelector() {
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NextTabButton, { activeTab, setActiveTab })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "products" ? "active" : ""}`, children: [
-            (system === "tower" || system === "chiller") && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency }),
+            (system === "tower" || system === "chiller") && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency, programType, setProgramType, programComponents, setProgramComponents }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "section-title full", children: [
               "Product 1 \u2014 ",
               system === "chiller" ? "Corrosion Inhibitor" : towerMode === "blended" ? "Scale & Corrosion Inhibitor" : "Antiscalant"
             ] }),
             /* ===================== COOLING TOWER TREATMENT DOSING ===================== */
             /* ---- SECTION: Antiscalant Builder (sec-antiscalant) ---- */
-            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AntiscalantCard, { qualityTier, atmpRecommended, recommendedAscSystem, getMyProductsFor, materialPrices, priceCurrency, ascQtyPerM3, setAscQtyPerM3, customerSystemVol, dosingMode: towerDosingMode, availableChemicals: towerAvailableChemicals }),
+            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AntiscalantCard, { qualityTier, atmpRecommended, recommendedAscSystem, getMyProductsFor, materialPrices, priceCurrency, ascQtyPerM3, setAscQtyPerM3, customerSystemVol, dosingMode: towerDosingMode, availableChemicals: towerAvailableChemicals, programComponents, programType }),
             system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Scale Inhibitors — Phosphonates", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#4FA8D8" }),
             /* ---- SECTION: Anticorrosion Builder (sec-anticorrosion) ---- */
-            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AnticorrosionCard, { qualityTier, recommendedCorSystem, getMyProductsFor, materialPrices, priceCurrency, corQtyPerM3, setCorQtyPerM3, customerSystemVol, ttaStockTargetPct, dosingMode: towerDosingMode, availableChemicals: towerAvailableChemicals }),
+            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AnticorrosionCard, { qualityTier, recommendedCorSystem, getMyProductsFor, materialPrices, priceCurrency, corQtyPerM3, setCorQtyPerM3, customerSystemVol, ttaStockTargetPct, dosingMode: towerDosingMode, availableChemicals: towerAvailableChemicals, programComponents, programType }),
             system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Corrosion Inhibitors — Mild Steel (Anodic/Cathodic)", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#4FA8D8" }),
             system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "full", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               ProductCard,
@@ -53082,15 +53110,15 @@ function GradeSelector() {
               }
             ) }),
             /* ---- SECTION: TTA (Tolyltriazole) Builder (sec-tta) ---- */
-            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TtaCard, { materialPrices, priceCurrency, customerSystemVol, ttaStockTargetPct, setTtaStockTargetPct }),
+            system === "tower" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TtaCard, { materialPrices, priceCurrency, customerSystemVol, ttaStockTargetPct, setTtaStockTargetPct, programComponents, programType }),
             /* ===================== CHILLER TREATMENT DOSING ===================== */
             /* ---- SECTION: Chiller Quality Standard (sec-chiller-quality) ---- */
             system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChillerQualityCard, { chQualityTier, setChQualityTier }),
             /* ---- SECTION: Chiller Inhibitor Builder (sec-chiller-builder) ---- */
-            system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChillerBuilderCard, { recommendedChSystem, materialPrices, priceCurrency, chillerSystemVol, ttaStockTargetPct, chQualityTier, setChQualityTier, dosingMode: chillerDosingMode, availableChemicals: chillerAvailableChemicals }),
+            system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChillerBuilderCard, { recommendedChSystem, materialPrices, priceCurrency, chillerSystemVol, ttaStockTargetPct, chQualityTier, setChQualityTier, dosingMode: chillerDosingMode, availableChemicals: chillerAvailableChemicals, programComponents, programType }),
             system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Scale Inhibitors — Phosphonates", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#FFC93C" }),
             /* ---- SECTION: EG Antifreeze Blend (sec-eg-blend) ---- */
-            system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EgBlendCard, { materialPrices, priceCurrency, programEngineeringData, setProgramEngineeringData }),
+            system === "chiller" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EgBlendCard, { materialPrices, priceCurrency, programEngineeringData, setProgramEngineeringData, programComponents, programType }),
             system === "tower" && towerMode === "blended" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "full", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               ProductCard,
               {
@@ -53134,13 +53162,13 @@ function GradeSelector() {
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BiocideModeCard, { useIsoGlutRotation, setUseIsoGlutRotation, legionellaRisk }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RotationCard, { useIsoGlutRotation, today, isoGlutDayA, setIsoGlutDayA, isoGlutDayB, setIsoGlutDayB }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Non-Oxidizing Biocides", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#00D9A3" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(IsoCard, { useIsoGlutRotation, today, isoGlutDayA, materialPrices, priceCurrency, customerSystemVol }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlutCard, { useIsoGlutRotation, today, isoGlutDayB, materialPrices, priceCurrency, customerSystemVol }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DbnpaCard, { materialPrices, priceCurrency, customerSystemVol }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuatCard, { materialPrices, priceCurrency, customerSystemVol }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ThpsCard, { materialPrices, priceCurrency, customerSystemVol }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(IsoCard, { useIsoGlutRotation, today, isoGlutDayA, materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlutCard, { useIsoGlutRotation, today, isoGlutDayB, materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DbnpaCard, { materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuatCard, { materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ThpsCard, { materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Oxidizing Biocides", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#FF9F1C" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BromineCard, { materialPrices, priceCurrency, customerSystemVol }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BromineCard, { materialPrices, priceCurrency, customerSystemVol, system, programComponents, programType }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PrintButtons, { reportLabel: `${SYSTEM_LABELS[system] || system} \u2014 Biocides`, priceCurrency }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NextTabButton, { activeTab, setActiveTab })
           ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full", children: [
@@ -53150,7 +53178,7 @@ function GradeSelector() {
           ] })
         ] }),
         system === "boiler" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "products" || activeTab === "analysis" ? "active" : ""}`, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency, programType, setProgramType, programComponents, setProgramComponents }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Boiler Feedwater Analysis" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 10, color: "var(--text-muted)" }, children: "Feedwater values (after any external softening/dealkalization) \u2014 these directly affect the silica, hardness, and TDS warnings below, the same way Tower/Chiller's Water Analysis feeds LSI." }),
@@ -53191,17 +53219,17 @@ function GradeSelector() {
           ) }),
           /* ===================== BOILER TREATMENT DOSING ===================== */
             /* ---- SECTION: Boiler Oxygen Scavenger (sec-oxygen-scavenger) ---- */
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BsCard, { recommendedBsSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode: boilerDosingMode, availableChemicals: boilerAvailableChemicals }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BsCard, { recommendedBsSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode: boilerDosingMode, availableChemicals: boilerAvailableChemicals, programComponents, programType }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Boiler — Oxygen Scavengers", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#4FA8D8" }),
             /* ---- SECTION: Boiler Scale/Phosphate Inhibitor (sec-scale-inhibitor) ---- */
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ScCard, { materialPrices, priceCurrency, getMyProductsFor, scQtyPerM3, setScQtyPerM3, boilerSystemVol }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ScCard, { materialPrices, priceCurrency, getMyProductsFor, scQtyPerM3, setScQtyPerM3, boilerSystemVol, programComponents, programType }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Boiler — Alkalinity, Scale & Phosphate Control", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#FFC93C" }),
           /* ---- SECTION: Condensate Corrosion Inhibitor (sec-condensate-inhibitor) ---- */
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BcCard, { recommendedBcSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode: boilerDosingMode, availableChemicals: boilerAvailableChemicals }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BcCard, { recommendedBcSystem, materialPrices, priceCurrency, boilerSystemVol, dosingMode: boilerDosingMode, availableChemicals: boilerAvailableChemicals, programComponents, programType }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "Boiler — Condensate Corrosion (Neutralising & Filming Amines)", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#4FA8D8" })
         ] }) }),
         system === "ro" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "products" || activeTab === "analysis" ? "active" : ""}`, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProgramBuilderCard, { system, smartFlags: programSmartFlags, programEngineeringData, setProgramEngineeringData, priceCurrency, programType, setProgramType, programComponents, setProgramComponents }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card full", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "RO Feedwater Analysis" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 10, color: "var(--text-muted)" }, children: "Raw feedwater values ahead of the membrane \u2014 these directly affect the dechlorination and silica-tier warnings below, confirming (or overriding) the dominant scale type chosen in the Antiscalant card." }),
@@ -53217,12 +53245,12 @@ function GradeSelector() {
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SaveToClientHistoryCard, { system, ca: roFeedHardness, tds: roFeedTds, silica: roFeedSilica, chlorine: roFeedChlorine, overrides: roOverrides, setActiveTab }),
           /* ===================== RO / DEMINERALIZATION TREATMENT ===================== */
             /* ---- SECTION: RO Antiscalant Builder (sec-ro-antiscalant) ---- */
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RoAntiscalantCard, { recommendedRoSystem, materialPrices, priceCurrency, roQtyPerM3, setRoQtyPerM3, getMyProductsFor }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RoAntiscalantCard, { recommendedRoSystem, materialPrices, priceCurrency, roQtyPerM3, setRoQtyPerM3, getMyProductsFor, programComponents, programType }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MaterialSuggestionNote, { category: "RO — Antiscalant & Dechlorination", flags: materialSuggestionFlags, activeTab, setActiveTab, accentColor: "#4FA8D8" }),
             /* ---- SECTION: SBS Dechlorination Builder (sec-ro-sbs) ---- */
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SbsCard, { materialPrices, priceCurrency }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SbsCard, { materialPrices, priceCurrency, programComponents, programType }),
           /* ---- SECTION: RO Membrane Cleaning (CIP) (sec-ro-cip) ---- */
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CipCard, {}),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CipCard, { programComponents, programType }),
         ] }) })
       ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `tab-section ${activeTab === "cleaning" ? "active" : ""}`, children: [
@@ -53400,13 +53428,13 @@ function GradeSelector() {
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", { style: { color: "var(--text-faint)" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                   "Version & Data Log",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.228 — tap to see full history" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, fontWeight: 400, color: "var(--text-faint)", marginLeft: 8 }, children: "v9.230 — tap to see full history" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardCollapseToggle, {})
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "formula-note", style: { marginBottom: 12 }, children: "Every reference range in this tool is sourced from a real, citable document — a patent, a commercial technical bulletin, a peer-reviewed paper, or a documented field case study. This log shows the last several updates in plain language so it's quick to skim; the full technical history (every version since the tool started) is kept safe separately if it's ever needed." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 20, padding: 16, background: "var(--bg-inset-alt)", border: "1px solid #1B3A4D", borderRadius: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.228" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 700, color: "#00D9A3", marginBottom: 10 }, children: "Project Summary — v9.230" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "This tool covers the full working cycle of a water treatment programme: land on a clean Dashboard home screen (8 system/tool cards, each flagging only what genuinely needs attention where that applies), get an actionable material suggestion — automatically next to the relevant dosing card, or on demand from a system+function picker — backed by the same sourced reference data (Raw Materials & Formulation Library, now 20 categories / 74 materials, with a card/compare view and complete illustrative formulations), define the treatment programme (Treatment Program Builder, with water-analysis-driven smart recommendations), formulate the product (Products & Dosing, Manufacturing Formula Library now 274 research- and handbook-sourced formula groups across Chiller, Cooling Tower, Boiler, RO, General/Cross-System Cleaners, and a research-sourced Cleaning Solutions reference category), run the biocide programme (Biocide & Weekly Schedule), track and stay on top of recurring treatment tasks (Treatment Schedule & Tracking), clean and maintain the equipment (Cleaning Solutions), diagnose and respond when something goes wrong (Troubleshooting Guide), demineralize and regenerate resin (RO/DI & Resin), track a client site's water analysis over time with trend-aware advisory flags (Client / Site History & Trends), and manage the business side — with your own company branding on every generated document — (quoting, job history, raw material inventory with predictive days-until-empty estimates, supplier/reorder purchase orders, batch/QC production records with cost & margin tracking, formula revision history, TDS/SDS/COA document generation — Manufacturing Calculators), and turn that same product data into marketing material (Marketing Ideas: a templated ad copy/slogan generator, an ideas board, and a poster/flyer maker). Every tab is now reachable regardless of which system (Cooling Tower, Closed Chiller Loop, Boiler, Reverse Osmosis) is selected. 68 calculator/reference cards across 16 tabs, covering all 4 systems plus RO/DI demineralization and ion-exchange resin regeneration." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10 }, children: "Every field auto-saves locally in this browser (no account or internet needed), every reference figure is sourced and citable, and every calculation has been verified against a hand-calculated expected value using real-browser testing — not assumed correct because the code looks right." }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }, children: [
@@ -53415,8 +53443,8 @@ function GradeSelector() {
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "version-log-current", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.228" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-10-14" })
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "version-log-badge", children: "v9.230" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-muted)", fontSize: 12.5 }, children: "Last updated 2026-10-15" })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "asc-formula-table", style: { marginTop: 12 }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
@@ -53425,6 +53453,16 @@ function GradeSelector() {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "What changed" })
                 ] }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.230" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 15" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Products & Dosing now tidies itself to match Treatment Program Builder: a product card starts collapsed unless it's ticked there (or, before you've touched Program Builder at all, unless it's one of the usual defaults) — across every system (Tower, Chiller, Boiler, RO). Tick something in Program Builder and its card opens up; untick it and it collapses back. You can still open or close any card by hand at any time." })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.229" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 15" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "City Water Reference Library: picking a city from the quick-apply dropdown now keeps showing that city's name instead of resetting to \"Select a recorded city…\" — tap the ✕ next to it to clear and pick a different one." })
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.228" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
@@ -53464,16 +53502,6 @@ function GradeSelector() {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.221" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Reorganized navigation: Cleaning Solutions now has its own tab per system (Tower/Chiller/Boiler/Heat Exchanger/Mold-Die), and the core workflow now ends cleanly after the Customer Certificate." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.220" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Added the full TTA base-solution preparation method directly into the Anticorrosion manufacturing certificate, so it's a self-contained document." })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontWeight: 700 }, children: "v9.219" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { color: "var(--text-faint)", fontSize: 12 }, children: "Oct 14" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { style: { fontSize: 12.5 }, children: "Fixed a contradiction in the Anticorrosion batch instructions where the same TTA amount was treated as both a finished solution and raw powder needing fresh preparation." })
                   ] }),
                 ] })
               ] }),
